@@ -1,4 +1,4 @@
-# mcpDaemon
+# mcp-daemon
 
 ## Overview
 
@@ -20,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mcpDaemon = "0.1.0"
+mcp-daemon = "0.1.0"
 ```
 
 ## Overview
@@ -28,7 +28,7 @@ This is an implementation of the [Model Context Protocol](https://github.com/mod
 
 ## Repository
 
-The mcpDaemon repository can be found at: https://github.com/entrepeneur4lyf/mcpDaemon
+The mcp-daemon repository can be found at: https://github.com/entrepeneur4lyf/mcp-daemon
 
 ## Features
 
@@ -191,7 +191,7 @@ let transport = ClientInMemoryTransport::new(|t| tokio::spawn(inmemory_server(t)
 let transport = ClientSseTransportBuilder::new(server_url).build();
 
 // WS Transport
-let transport = mcpDaemon::transport::ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string()).build();
+let transport = mcp-daemon::transport::ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string()).build();
 ```
 
 #### Making Requests
@@ -200,7 +200,7 @@ let transport = mcpDaemon::transport::ClientWsTransportBuilder::new("ws://localh
 transport.open().await?;
 
 // Create and start client
-let client = mcpDaemon::client::ClientBuilder::new(transport.clone()).build();
+let client = mcp-daemon::client::ClientBuilder::new(transport.clone()).build();
 let client_clone = client.clone();
 let _client_handle = tokio::spawn(async move { client_clone.start().await });
 
@@ -235,7 +235,7 @@ Once servers are running, you can connect to them using the client:
 ```rust
 // Example: Using Brave Search server
 let transport = ClientSseTransportBuilder::new("http://localhost:3000/sse").build();
-let client = mcpDaemon::client::ClientBuilder::new(transport.clone()).build();
+let client = mcp-daemon::client::ClientBuilder::new(transport.clone()).build();
 
 // Make a search request
 let response = client

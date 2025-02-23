@@ -1,10 +1,10 @@
-# Testing Documentation for async-mcp
+# Testing Documentation for mcp-daemon (Diverged Implementation)
 
-This document provides an overview of the testing suite for the async-mcp project, including instructions on how to run the tests and the current test results.
+This document provides an overview of the testing suite for the mcp-daemon project, an advanced implementation of the Model Context Protocol (MCP) with extended functionality. It includes instructions on how to run the tests and the current test results.
 
 ## Test Modules and Methodologies
 
-The async-mcp project includes the following test modules with their respective testing methodologies:
+The mcp-daemon project includes the following test modules with their respective testing methodologies:
 
 1. Completable Module:
    - Tests the CompletableString implementation by creating a completable that appends "1" and "2" to the input.
@@ -171,7 +171,7 @@ rustup default stable
 
 ## Test Results
 
-Below are the most recent test results (as of 2025-02-19):
+Below are the most recent test results (as of 2025-02-23):
 
 ```
 running 33 tests
@@ -216,7 +216,7 @@ All tests are currently passing, indicating that the project is in a stable stat
 
 ## Benchmark Results
 
-Latest benchmark results:
+Latest benchmark results (Note: These results may not reflect the current state of the diverged implementation):
 
 ```text
 Running benches/benchmarks.rs (target/release/deps/benchmarks-19d3db3823b0f639)
