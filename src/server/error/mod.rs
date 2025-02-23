@@ -22,7 +22,7 @@ pub enum ErrorCode {
     ConnectionClosed = -1,
     /// The request timed out
     RequestTimeout = -2,
-    
+
     // Server-specific error codes
     /// The server has not been initialized
     ServerNotInitialized = -1000,
@@ -122,6 +122,7 @@ pub enum ServerError {
     Io(std::io::Error),
     /// Server error with code and message
     Server {
+        /// The error code
         code: ErrorCode,
         /// Error message
         message: String,
@@ -164,6 +165,7 @@ impl ServerError {
 }
 
 impl fmt::Display for ServerError {
+    /// Format the error message
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::JsonRpc(e) => write!(f, "JSON-RPC error: {} (code {})", e.message, e.code),
@@ -176,6 +178,7 @@ impl fmt::Display for ServerError {
 }
 
 impl StdError for ServerError {
+    /// Get the error source
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::JsonRpc(_) => None,
@@ -188,24 +191,28 @@ impl StdError for ServerError {
 }
 
 impl From<JsonRpcError> for ServerError {
+    /// Convert a JSON-RPC error to a server error
     fn from(err: JsonRpcError) -> Self {
         Self::JsonRpc(err)
     }
 }
 
 impl From<crate::transport::TransportError> for ServerError {
+    /// Convert a transport error to a server error
     fn from(err: crate::transport::TransportError) -> Self {
         Self::Transport(err)
     }
 }
 
 impl From<serde_json::Error> for ServerError {
+    /// Convert a JSON error to a server error
     fn from(err: serde_json::Error) -> Self {
         Self::Json(err)
     }
 }
 
 impl From<std::io::Error> for ServerError {
+    /// Convert an I/O error to a server error
     fn from(err: std::io::Error) -> Self {
         Self::Io(err)
     }

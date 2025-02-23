@@ -17,7 +17,6 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use async_trait::async_trait;
-use serde_json;
 
 /// Helper to run async benchmarks consistently
 fn bench_async<F, Fut>(rt: &Runtime, f: F) -> Fut::Output

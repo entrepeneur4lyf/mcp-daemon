@@ -123,7 +123,9 @@ pub struct SamplingResult {
     pub model: String,
     /// The reason why generation stopped
     pub stop_reason: Option<StopReason>,
+    /// The role of the message sender (user or assistant)
     pub role: MessageRole,
+    /// The content of the message (text or image)
     pub content: MessageContent,
 }
 

@@ -8,8 +8,10 @@ use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::future::{ready, Ready};
 
+/// Claims in a JWT token
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
+    /// Expiration timestamp
     pub exp: usize,
     /// Issued at timestamp
     pub iat: usize,

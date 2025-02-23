@@ -26,7 +26,6 @@ use tracing::{debug, error, info};
 /// Claims in a JWT token
 pub struct Claims {
     /// Expiration timestamp
-    /// Expiration timestamp
     pub exp: usize,
     /// Issued at timestamp
     pub iat: usize,
@@ -74,7 +73,9 @@ pub struct CorsConfig {
 #[derive(Clone)]
 /// Configuration for TLS
 pub struct TlsConfig {
+    /// Path to the TLS certificate file
     pub cert_path: String,
+    /// Path to the TLS key file
     pub key_path: String,
 }
 
@@ -146,7 +147,7 @@ where
     if let Some(tls_config) = &config.tls {
         use std::fs::File;
         use std::io::BufReader;
-        
+
         // Load TLS keys
         let cert_file = File::open(&tls_config.cert_path)?;
         let key_file = File::open(&tls_config.key_path)?;
@@ -175,6 +176,7 @@ where
     Ok(())
 }
 
+/// Run an HTTP server with the specified parameters
 pub async fn http_server(
     port: u16,
     sessions: Arc<Mutex<HashMap<String, ServerHttpTransport>>>,

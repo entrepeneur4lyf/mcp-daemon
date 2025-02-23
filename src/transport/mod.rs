@@ -21,18 +21,19 @@ mod ws_transport;
 pub use ws_transport::*;
 mod http_transport;
 pub use http_transport::*;
+
 /// only JsonRpcMessage is supported for now
 /// https://spec.modelcontextprotocol.io/specification/basic/messages/
 pub type Message = JsonRpcMessage;
 
 #[async_trait]
 /// Transport layer trait for handling MCP protocol communication
-/// 
+///
 /// Implementations of this trait handle the sending and receiving of messages
 /// over various transport protocols (stdio, websockets, SSE, etc.)
 pub trait Transport: Send + Sync + 'static {
     /// Send a message to the transport
-    /// 
+    ///
     /// # Errors
     /// - `TransportErrorCode::ConnectionClosed` if the connection is closed
     /// - `TransportErrorCode::MessageTooLarge` if the message exceeds size limits
@@ -41,7 +42,7 @@ pub trait Transport: Send + Sync + 'static {
 
     /// Receive a message from the transport
     /// This is a blocking call that returns None when the connection is closed
-    /// 
+    ///
     /// # Errors
     /// - `TransportErrorCode::ConnectionClosed` if the connection is closed
     /// - `TransportErrorCode::MessageReceiveFailed` if receiving fails
@@ -49,7 +50,7 @@ pub trait Transport: Send + Sync + 'static {
     async fn receive(&self) -> Result<Option<Message>>;
 
     /// Open the transport connection
-    /// 
+    ///
     /// # Errors
     /// - `TransportErrorCode::ConnectionFailed` if connection fails
     /// - `TransportErrorCode::HandshakeFailed` if protocol handshake fails
@@ -57,7 +58,7 @@ pub trait Transport: Send + Sync + 'static {
     async fn open(&self) -> Result<()>;
 
     /// Close the transport connection
-    /// 
+    ///
     /// # Errors
     /// - `TransportErrorCode::ConnectionClosed` if already closed
     /// - `TransportErrorCode::InvalidState` if in invalid state
@@ -66,6 +67,7 @@ pub trait Transport: Send + Sync + 'static {
 
 /// Request ID type
 pub type RequestId = u64;
+
 /// JSON RPC version type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
@@ -85,7 +87,7 @@ impl JsonRpcVersion {
 }
 
 /// A JSON-RPC message that can be either a request, response, or notification
-/// 
+///
 /// This enum represents the three possible message types in the JSON-RPC protocol.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -103,13 +105,17 @@ pub enum JsonRpcMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 /// A JSON-RPC request message
-/// 
+///
 /// Contains a method name to invoke and optional parameters
 pub struct JsonRpcRequest {
+    /// The request ID
     pub id: RequestId,
+    /// The method name to invoke
     pub method: String,
+    /// Optional parameters for the method
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<serde_json::Value>,
+    /// The JSON-RPC version
     pub jsonrpc: JsonRpcVersion,
 }
 
@@ -118,12 +124,15 @@ pub struct JsonRpcRequest {
 #[serde(deny_unknown_fields)]
 #[serde(default)]
 /// A JSON-RPC notification message
-/// 
+///
 /// Similar to a request but does not expect a response
 pub struct JsonRpcNotification {
+    /// The method name to invoke
     pub method: String,
+    /// Optional parameters for the method
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<serde_json::Value>,
+    /// The JSON-RPC version
     pub jsonrpc: JsonRpcVersion,
 }
 
@@ -132,7 +141,7 @@ pub struct JsonRpcNotification {
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 /// A JSON-RPC response message
-/// 
+///
 /// Contains either a result or an error in response to a request
 pub struct JsonRpcResponse {
     /// The request ID this response corresponds to
@@ -151,7 +160,7 @@ pub struct JsonRpcResponse {
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 /// A JSON-RPC error object
-/// 
+///
 /// Contains error details when a request fails
 pub struct JsonRpcError {
     /// Error code

@@ -14,6 +14,9 @@ exclude = [
     "benches/*",
     ".gitignore",
     ".cline/*",
+    ".windsurf/*",
+    ".roo/*",
+    ".cursoir/*",
 ]
 repository = "https://github.com/entrepeneur4lyf/mcp-daemon"
 license = "Apache-2.0"

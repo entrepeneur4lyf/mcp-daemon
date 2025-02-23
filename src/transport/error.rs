@@ -28,7 +28,7 @@ pub enum TransportErrorCode {
     ProtocolError = -1200,
     /// Transport handshake failed
     HandshakeFailed = -1201,
-    
+
     // Transport operation errors
     /// Error sending message
     SendError = -1300,
@@ -126,6 +126,7 @@ pub enum TransportError {
     #[error("{code}: {message}")]
     /// Transport-specific error
     Transport {
+        /// The error code
         code: TransportErrorCode,
         /// Error message
         message: String,
