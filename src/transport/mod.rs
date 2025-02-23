@@ -23,7 +23,7 @@ mod http_transport;
 pub use http_transport::*;
 
 /// only JsonRpcMessage is supported for now
-/// https://spec.modelcontextprotocol.io/specification/basic/messages/
+/// <https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/messages/>
 pub type Message = JsonRpcMessage;
 
 #[async_trait]
