@@ -19,6 +19,10 @@ use tracing::debug;
 
 type Result<T> = std::result::Result<T, TransportError>;
 
+/// The main protocol implementation for handling MCP messages
+/// 
+/// Manages bidirectional communication between client and server,
+/// handling requests, notifications, and their respective responses.
 #[derive(Clone)]
 pub struct Protocol<T: Transport> {
     transport: Arc<T>,
@@ -30,11 +34,20 @@ pub struct Protocol<T: Transport> {
 }
 
 impl<T: Transport> Protocol<T> {
-    pub fn builder(transport: T) -> ProtocolBuilder<T> {
+    /// Creates a new protocol builder with the given transport
+/// 
+/// # Arguments
+/// * `transport` - The transport layer to use for communication
+pub fn builder(transport: T) -> ProtocolBuilder<T> {
         ProtocolBuilder::new(transport)
     }
 
-    pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> Result<()> {
+    /// Sends a notification to the remote endpoint
+/// 
+/// # Arguments
+/// * `method` - The notification method name
+/// * `params` - Optional parameters for the notification
+pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> Result<()> {
         let notification = JsonRpcNotification {
             method: method.to_string(),
             params,
@@ -45,6 +58,15 @@ impl<T: Transport> Protocol<T> {
         Ok(())
     }
 
+    /// Send a JSON-RPC request to the server
+    ///
+    /// # Arguments
+    /// * `method` - The name of the method to call
+    /// * `params` - Optional parameters for the method
+    /// * `options` - Request options like timeout
+    ///
+    /// # Returns
+    /// The JSON-RPC response from the server
     pub async fn request(
         &self,
         method: &str,
@@ -90,6 +112,10 @@ impl<T: Transport> Protocol<T> {
         }
     }
 
+    /// Listen for and handle incoming JSON-RPC messages
+    ///
+    /// This method runs indefinitely, processing incoming messages and routing them
+    /// to the appropriate handlers.
     pub async fn listen(&self) -> Result<()> {
         debug!("Listening for requests");
         loop {
@@ -162,11 +188,16 @@ impl<T: Transport> Protocol<T> {
 
 /// The default request timeout, in milliseconds
 pub const DEFAULT_REQUEST_TIMEOUT_MSEC: u64 = 60000;
+/// Options for configuring request behavior
 pub struct RequestOptions {
     timeout: Duration,
 }
 
 impl RequestOptions {
+    /// Set the timeout duration for requests
+    ///
+    /// # Arguments
+    /// * `timeout` - The duration after which requests should time out
     pub fn timeout(self, timeout: Duration) -> Self {
         Self { timeout }
     }
@@ -180,13 +211,18 @@ impl Default for RequestOptions {
     }
 }
 
+/// Builder for creating and configuring a Protocol instance
 pub struct ProtocolBuilder<T: Transport> {
     _transport: T,
     request_handlers: HashMap<String, Box<dyn RequestHandler>>,
     notification_handlers: HashMap<String, Box<dyn NotificationHandler>>,
 }
 impl<T: Transport> ProtocolBuilder<T> {
-    pub fn new(transport: T) -> Self {
+    /// Creates a new ProtocolBuilder instance
+/// 
+/// # Arguments
+/// * `transport` - The transport layer to use for communication
+pub fn new(transport: T) -> Self {
         Self {
             _transport: transport,
             request_handlers: HashMap::new(),
@@ -213,10 +249,25 @@ impl<T: Transport> ProtocolBuilder<T> {
         self
     }
 
+    /// Check if a handler exists for the given method
+    ///
+    /// # Arguments
+    /// * `method` - The method name to check
+    ///
+    /// # Returns
+    /// `true` if a handler exists for the method, `false` otherwise
     pub fn has_request_handler(&self, method: &str) -> bool {
         self.request_handlers.contains_key(method)
     }
 
+    /// Register a handler for a notification method
+    ///
+    /// # Arguments
+    /// * `method` - The notification method to handle
+    /// * `handler` - The function to handle notifications of this type
+    ///
+    /// # Type Parameters
+    /// * `N` - The type of notification payload
     pub fn notification_handler<N>(
         mut self,
         method: &str,
@@ -235,6 +286,10 @@ impl<T: Transport> ProtocolBuilder<T> {
         self
     }
 
+    /// Build the protocol instance with the configured handlers
+    ///
+    /// # Returns
+    /// A new Protocol instance ready to handle requests and notifications
     pub fn build(self) -> Protocol<T> {
         Protocol {
             transport: Arc::new(self._transport),

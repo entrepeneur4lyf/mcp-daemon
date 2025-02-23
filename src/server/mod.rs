@@ -1,13 +1,22 @@
 mod mcp;
+/// Module for handling code completion functionality
 pub mod completion;
+/// Module for error types and error handling
 pub mod error;
+/// Module for handling server notifications
 pub mod notifications;
+/// Module for handling prompts and prompt-related functionality
 pub mod prompt;
 pub use prompt::RegisteredPrompt;
+/// Module for handling server requests
 pub mod requests;
+/// Module for managing resources and resource-related functionality
 pub mod resource;
+/// Module for managing root directories and workspace roots
 pub mod roots;
+/// Module for handling sampling functionality
 pub mod sampling;
+/// Module for managing tools and tool-related functionality
 pub mod tool;
 
 pub use mcp::McpServer;

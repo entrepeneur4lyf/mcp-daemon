@@ -17,6 +17,7 @@ pub struct RegisteredTool {
 
 /// A callback that can execute a tool
 pub trait ToolCallback: Send + Sync {
+    /// Calls the tool with optional arguments
     fn call(&self, args: Option<Value>) -> ToolFuture;
 }
 

@@ -9,13 +9,16 @@ use async_trait::async_trait;
 /// Server-side HTTP transport variants
 #[derive(Debug, Clone)]
 pub enum ServerHttpTransport {
+    /// Server-Sent Events transport
     Sse(ServerSseTransport),
+    /// WebSocket transport
     Ws(ServerWsTransport),
 }
 
 /// Client-side HTTP transport variants
 #[derive(Debug, Clone)]
 pub enum ClientHttpTransport {
+    /// WebSocket transport
     Ws(ClientWsTransport),
 }
 

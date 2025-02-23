@@ -6,45 +6,71 @@ use std::error::Error as StdError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransportErrorCode {
     // Connection errors
+    /// Connection to transport failed
     ConnectionFailed = -1000,
+    /// Connection was closed
     ConnectionClosed = -1001,
+    /// Connection timed out
     ConnectionTimeout = -1002,
 
     // Message errors
+    /// Message size exceeds limit
     MessageTooLarge = -1100,
+    /// Message format is invalid
     InvalidMessage = -1101,
+    /// Failed to send message
     MessageSendFailed = -1102,
+    /// Failed to receive message
     MessageReceiveFailed = -1103,
 
     // Protocol errors
+    /// Protocol error occurred
     ProtocolError = -1200,
+    /// Transport handshake failed
     HandshakeFailed = -1201,
     
     // Transport operation errors
+    /// Error sending message
     SendError = -1300,
+    /// Error opening transport
     OpenError = -1301,
+    /// Error closing transport
     CloseError = -1302,
+    /// Error receiving message
     ReceiveError = -1303,
+    /// Authentication failed
     AuthenticationFailed = -1202,
 
     // Session errors
+    /// Session has expired
     SessionExpired = -1310,
+    /// Session is invalid
     SessionInvalid = -1311,
+    /// Session not found
     SessionNotFound = -1312,
 
     // WebSocket specific
+    /// WebSocket upgrade failed
     WebSocketUpgradeFailed = -1400,
+    /// WebSocket protocol error
     WebSocketProtocolError = -1401,
+    /// WebSocket frame error
     WebSocketFrameError = -1402,
 
     // SSE specific
+    /// SSE connection failed to establish
     SseConnectionFailed = -1500,
+    /// Error occurred while streaming SSE events
     SseStreamError = -1501,
+    /// Failed to parse SSE event data
     SseParseError = -1502,
 
     // Generic errors
+    /// Internal transport error
     InternalError = -1900,
+    /// Transport operation timed out
     Timeout = -1901,
+    /// Transport is in an invalid state
     InvalidState = -1902,
 }
 
@@ -98,35 +124,46 @@ impl fmt::Display for TransportErrorCode {
 #[derive(Error, Debug)]
 pub enum TransportError {
     #[error("{code}: {message}")]
+    /// Transport-specific error
     Transport {
         code: TransportErrorCode,
+        /// Error message
         message: String,
         #[source]
+        /// Optional error source
         source: Option<Box<dyn StdError + Send + Sync>>,
     },
 
     #[error("JSON error: {0}")]
+    /// JSON serialization/deserialization error
     Json(#[from] serde_json::Error),
 
     #[error("I/O error: {0}")]
+    /// I/O error
     Io(#[from] std::io::Error),
 
     #[error("WebSocket error: {0}")]
+    /// WebSocket error
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 
     #[error("HTTP error: {0}")]
+    /// HTTP error
     Http(#[from] reqwest::Error),
 
     #[error("Channel error: {0}")]
+    /// Channel communication error
     Channel(String),
 
     #[error("UTF-8 error: {0}")]
+    /// UTF-8 encoding/decoding error
     Utf8(#[from] std::string::FromUtf8Error),
 
     #[error("System time error: {0}")]
+    /// System time error
     SystemTime(#[from] std::time::SystemTimeError),
 
     #[error("JWT error: {0}")]
+    /// JWT token error
     Jwt(#[from] jsonwebtoken::errors::Error),
 }
 

@@ -6,20 +6,31 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCode {
     // Standard JSON-RPC error codes
+    /// Invalid JSON was received by the server
     ParseError = -32700,
+    /// The JSON sent is not a valid Request object
     InvalidRequest = -32600,
+    /// The method does not exist / is not available
     MethodNotFound = -32601,
+    /// Invalid method parameter(s)
     InvalidParams = -32602,
+    /// Internal JSON-RPC error
     InternalError = -32603,
 
     // MCP-specific error codes
+    /// The connection was closed unexpectedly
     ConnectionClosed = -1,
+    /// The request timed out
     RequestTimeout = -2,
     
     // Server-specific error codes
+    /// The server has not been initialized
     ServerNotInitialized = -1000,
+    /// The server capabilities are invalid
     InvalidCapabilities = -1001,
+    /// A required handler has not been set
     HandlerNotSet = -1002,
+    /// An error occurred during server shutdown
     ShutdownError = -1003,
 }
 
@@ -112,7 +123,9 @@ pub enum ServerError {
     /// Server error with code and message
     Server {
         code: ErrorCode,
+        /// Error message
         message: String,
+        /// Optional error source
         source: Option<Box<dyn StdError + Send + Sync>>,
     },
 }

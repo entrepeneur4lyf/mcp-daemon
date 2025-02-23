@@ -23,21 +23,30 @@ use tracing::{debug, error, info};
 /// Server-side SSE transport that handles HTTP POST requests for incoming messages
 /// and sends responses via SSE
 #[derive(Debug, Serialize, Deserialize)]
+/// Claims in a JWT token
 pub struct Claims {
+    /// Expiration timestamp
+    /// Expiration timestamp
     pub exp: usize,
+    /// Issued at timestamp
     pub iat: usize,
 }
 
 #[derive(Deserialize)]
+/// Query parameters for SSE messages
 pub struct MessageQuery {
     #[serde(rename = "sessionId")]
     session_id: Option<String>,
 }
 
 #[derive(Clone)]
+/// Configuration for the SSE HTTP server
 pub struct ServerConfig {
+    /// Port to listen on
     pub port: u16,
+    /// Optional CORS configuration
     pub cors: Option<CorsConfig>,
+    /// Optional TLS configuration
     pub tls: Option<TlsConfig>,
 }
 
@@ -52,19 +61,25 @@ impl Default for ServerConfig {
 }
 
 #[derive(Clone)]
+/// Configuration for CORS
 pub struct CorsConfig {
+    /// Allowed origin for CORS
     pub allowed_origin: String,
+    /// Whether to allow credentials
     pub allow_credentials: bool,
+    /// Maximum age for CORS preflight requests
     pub max_age: Option<usize>,
 }
 
 #[derive(Clone)]
+/// Configuration for TLS
 pub struct TlsConfig {
     pub cert_path: String,
     pub key_path: String,
 }
 
 #[derive(Clone)]
+/// State for managing SSE sessions
 pub struct SessionState {
     sessions: Arc<Mutex<HashMap<String, ServerHttpTransport>>>,
     port: u16,
@@ -195,6 +210,11 @@ pub async fn http_server(
     server.await
 }
 
+/// Handles SSE requests
+///
+/// # Arguments
+/// * `req` - The HTTP request
+/// * `session_state` - Shared session state
 pub async fn sse_handler(
     req: actix_web::HttpRequest,
     session_state: web::Data<SessionState>,

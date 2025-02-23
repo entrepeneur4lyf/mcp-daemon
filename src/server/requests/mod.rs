@@ -10,15 +10,19 @@ use crate::types::{Implementation, ServerCapabilities};
 #[serde(tag = "method", content = "params")]
 pub enum Request {
     #[serde(rename = "ping")]
+    /// Ping request to check server health
     Ping,
 
     #[serde(rename = "initialize")]
+    /// Initialize request with parameters
     Initialize(InitializeParams),
 
     #[serde(rename = "logging/setLevel")]
+    /// Set logging level request with parameters
     SetLevel(SetLevelParams),
 
     #[serde(rename = "cancel")]
+    /// Cancel request with parameters
     Cancel(CancelParams),
 }
 

@@ -61,6 +61,7 @@ pub struct ClientStdioTransport {
 }
 
 impl ClientStdioTransport {
+    /// Creates a new stdio transport by spawning a program with the given arguments
     pub fn new(program: &str, args: &[&str]) -> Result<Self> {
         Ok(ClientStdioTransport {
             stdin: Arc::new(Mutex::new(None)),

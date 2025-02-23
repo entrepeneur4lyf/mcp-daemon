@@ -27,19 +27,26 @@ impl std::fmt::Debug for RegisteredPrompt {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Result returned when getting a prompt's details
 pub struct GetPromptResult {
+    /// Optional description of the prompt
     pub description: Option<String>,
+    /// List of messages that make up the prompt
     pub messages: Vec<PromptMessage>,
 }
 
 #[derive(Debug, Clone)]
+/// A message within a prompt
 pub struct PromptMessage {
+    /// The role of the message sender (e.g., 'user', 'assistant')
     pub role: String,
+    /// The content of the message
     pub content: MessageContent,
 }
 
 /// A callback that can execute a prompt
 pub trait PromptCallback: Send + Sync {
+    /// Calls the prompt with optional arguments
     fn call(&self, args: Option<HashMap<String, String>>) -> PromptFuture;
 }
 

@@ -13,7 +13,9 @@ type Result<T> = std::result::Result<T, ServerError>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
+    /// Role representing the user in a conversation
     User,
+    /// Role representing the AI assistant in a conversation
     Assistant,
 }
 
@@ -21,29 +23,46 @@ pub enum MessageRole {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum MessageContent {
-    Text { text: String },
-    Image { data: String, mime_type: Option<String> },
+    /// Text content with a string payload
+    Text {
+        /// The text content
+        text: String
+    },
+    /// Image content with base64-encoded data and optional MIME type
+    Image {
+        /// The image data (e.g., base64 encoded)
+        data: String,
+        /// The optional MIME type of the image
+        mime_type: Option<String>
+    },
 }
 
 /// A message in a sampling conversation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
+    /// The role of the message sender (user or assistant)
     pub role: MessageRole,
+    /// The content of the message (text or image)
     pub content: MessageContent,
 }
 
 /// Model selection preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelPreferences {
+    /// Optional hints for model selection
     pub hints: Option<Vec<ModelHint>>,
+    /// Priority for cost optimization (0.0 to 1.0)
     pub cost_priority: Option<f32>,
+    /// Priority for speed optimization (0.0 to 1.0)
     pub speed_priority: Option<f32>,
+    /// Priority for intelligence/quality optimization (0.0 to 1.0)
     pub intelligence_priority: Option<f32>,
 }
 
 /// A hint for model selection
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHint {
+    /// Optional specific model name to use
     pub name: Option<String>,
 }
 
@@ -51,21 +70,32 @@ pub struct ModelHint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ContextInclusion {
+    /// No model preference
     None,
+    /// Use the model running on this server
     ThisServer,
+    /// Use models from all available servers
     AllServers,
 }
 
 /// Parameters for a sampling request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SamplingRequest {
+    /// List of messages in the conversation
     pub messages: Vec<Message>,
+    /// Optional model preferences for sampling
     pub model_preferences: Option<ModelPreferences>,
+    /// Optional system prompt
     pub system_prompt: Option<String>,
+    /// Optional context inclusion settings
     pub include_context: Option<ContextInclusion>,
+    /// Optional temperature parameter for sampling
     pub temperature: Option<f32>,
+    /// Maximum number of tokens to generate
     pub max_tokens: u32,
+    /// Optional sequences that will stop generation
     pub stop_sequences: Option<Vec<String>>,
+    /// Optional metadata for the sampling request
     pub metadata: Option<HashMap<String, Value>>,
 }
 
@@ -73,18 +103,25 @@ pub struct SamplingRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum StopReason {
+    /// Generation stopped due to end of turn
     EndTurn,
+    /// Generation stopped due to stop sequence
     StopSequence,
+    /// Generation stopped due to max tokens
     MaxTokens,
+    /// Generation stopped for unknown reason
     Unknown,
     #[serde(other)]
+    /// Generation stopped for other reason
     Other,
 }
 
 /// Result of a sampling request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SamplingResult {
+    /// The model to use for sampling
     pub model: String,
+    /// The reason why generation stopped
     pub stop_reason: Option<StopReason>,
     pub role: MessageRole,
     pub content: MessageContent,
@@ -92,6 +129,7 @@ pub struct SamplingResult {
 
 /// A callback that can handle sampling requests
 pub trait SamplingCallback: Send + Sync {
+    /// Calls the sampling function with the given request
     fn call(
         &self,
         request: SamplingRequest,

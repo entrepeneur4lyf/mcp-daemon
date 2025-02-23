@@ -74,6 +74,10 @@ pub struct ClientInMemoryTransport {
 }
 
 impl ClientInMemoryTransport {
+    /// Creates a new in-memory transport with a server factory function
+    ///
+    /// The server factory function takes a `ServerInMemoryTransport` and returns a `JoinHandle`
+    /// that represents the server task.
     pub fn new<F>(server_factory: F) -> Self
     where
         F: Fn(ServerInMemoryTransport) -> JoinHandle<()> + Send + Sync + 'static,

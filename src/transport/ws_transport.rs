@@ -18,6 +18,7 @@ type MessageSender = broadcast::Sender<Message>;
 type MessageReceiver = broadcast::Receiver<Message>;
 
 #[derive(Clone)]
+/// WebSocket transport implementation for the server side
 pub struct ServerWsTransport {
     session: Arc<Mutex<Option<Session>>>,
     rx: Arc<Mutex<Option<broadcast::Receiver<Message>>>>,
@@ -35,6 +36,11 @@ impl std::fmt::Debug for ServerWsTransport {
 }
 
 impl ServerWsTransport {
+    /// Create a new server-side WebSocket transport
+    ///
+    /// # Arguments
+    /// * `session` - The WebSocket session
+    /// * `rx` - Channel receiver for incoming messages
     pub fn new(session: Session, rx: broadcast::Receiver<Message>) -> Self {
         Self {
             session: Arc::new(Mutex::new(Some(session))),
@@ -45,6 +51,7 @@ impl ServerWsTransport {
 }
 
 #[derive(Clone)]
+/// WebSocket transport implementation for the client side
 pub struct ClientWsTransport {
     ws_tx: Arc<Mutex<Option<MessageSender>>>,
     ws_rx: Arc<Mutex<Option<MessageReceiver>>>,
@@ -66,17 +73,26 @@ impl std::fmt::Debug for ClientWsTransport {
 }
 
 impl ClientWsTransport {
+    /// Create a builder for configuring and creating a client WebSocket transport
+    ///
+    /// # Arguments
+    /// * `url` - The WebSocket server URL to connect to
     pub fn builder(url: String) -> ClientWsTransportBuilder {
         ClientWsTransportBuilder::new(url)
     }
 }
 
+/// Builder for configuring and creating a client WebSocket transport
 pub struct ClientWsTransportBuilder {
     url: String,
     headers: HashMap<String, String>,
 }
 
 impl ClientWsTransportBuilder {
+    /// Create a new transport builder
+    ///
+    /// # Arguments
+    /// * `url` - The WebSocket server URL to connect to
     pub fn new(url: String) -> Self {
         Self {
             url,
@@ -84,11 +100,17 @@ impl ClientWsTransportBuilder {
         }
     }
 
+    /// Add a custom header to the WebSocket connection
+    ///
+    /// # Arguments
+    /// * `key` - Header name
+    /// * `value` - Header value
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.insert(key.into(), value.into());
         self
     }
 
+    /// Build the client WebSocket transport with the configured options
     pub fn build(self) -> ClientWsTransport {
         ClientWsTransport {
             ws_tx: Arc::new(Mutex::new(None)),
@@ -256,6 +278,13 @@ impl Transport for ClientWsTransport {
     }
 }
 
+/// Handle a WebSocket connection, managing message flow between client and server
+///
+/// # Arguments
+/// * `session` - The WebSocket session
+/// * `stream` - Stream of incoming WebSocket messages
+/// * `tx` - Channel sender for outgoing messages
+/// * `rx` - Channel receiver for incoming messages
 pub async fn handle_ws_connection(
     mut session: Session,
     mut stream: actix_ws::MessageStream,

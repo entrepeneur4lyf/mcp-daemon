@@ -11,17 +11,22 @@ use std::future::{ready, Ready};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub exp: usize,
+    /// Issued at timestamp
     pub iat: usize,
 }
 
 #[derive(Clone)]
+/// Configuration for JWT authentication
 pub struct AuthConfig {
+    /// Secret key for JWT signing and verification
     pub jwt_secret: String,
 }
 
+/// JWT authentication handler
 pub struct JwtAuth(Option<AuthConfig>);
 
 impl JwtAuth {
+    /// Creates a new JWT authentication handler
     pub fn new(config: Option<AuthConfig>) -> Self {
         JwtAuth(config)
     }
@@ -47,6 +52,7 @@ where
     }
 }
 
+/// Middleware for handling JWT authentication
 pub struct JwtAuthMiddleware<S> {
     service: S,
     auth_config: Option<AuthConfig>,

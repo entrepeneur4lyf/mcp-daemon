@@ -16,6 +16,7 @@ pub struct Root {
 
 /// A callback that can list roots
 pub trait RootsCallback: Send + Sync {
+    /// Calls the roots function to get a list of root directories
     fn call(&self) -> RootsFuture;
 }
 

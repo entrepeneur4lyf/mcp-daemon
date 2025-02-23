@@ -15,7 +15,6 @@ exclude = [
     ".gitignore",
     ".cline/*",
 ]
-[package]
 repository = "https://github.com/entrepeneur4lyf/mcp-daemon"
 license = "Apache-2.0"
 authors = ["Shawn McAllister - https://github.com/entrepeneur4lyf", "Original author: https://github.com/v3g42"]

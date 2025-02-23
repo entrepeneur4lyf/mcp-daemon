@@ -8,30 +8,39 @@ use crate::server::error::ServerError;
 #[serde(tag = "method", content = "params")]
 pub enum Notification {
     #[serde(rename = "notifications/cancelled")]
+    /// Request cancelled notification
     Cancelled(CancelledParams),
 
     #[serde(rename = "notifications/progress")]
+    /// Progress update notification
     Progress(ProgressParams),
 
     #[serde(rename = "notifications/initialized")]
+    /// Server initialized notification
     Initialized,
 
     #[serde(rename = "notifications/roots/list_changed")]
+    /// Roots list changed notification
     RootsListChanged,
 
     #[serde(rename = "notifications/logging/message")]
+    /// Logging message notification
     LoggingMessage(LoggingMessageParams),
 
     #[serde(rename = "notifications/resources/updated")]
+    /// Resource updated notification
     ResourceUpdated(ResourceUpdatedParams),
 
     #[serde(rename = "notifications/resources/list_changed")]
+    /// Resource list changed notification
     ResourceListChanged,
 
     #[serde(rename = "notifications/tools/list_changed")]
+    /// Tool list changed notification
     ToolListChanged,
 
     #[serde(rename = "notifications/prompts/list_changed")]
+    /// Prompt list changed notification
     PromptListChanged,
 }
 
@@ -59,9 +68,13 @@ pub struct ProgressParams {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LoggingLevel {
+    /// Debug level log message
     Debug,
+    /// Info level log message
     Info,
+    /// Warning level log message
     Warn,
+    /// Error level log message
     Error,
 }
 

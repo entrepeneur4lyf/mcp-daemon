@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type")]
 pub enum Reference {
     #[serde(rename = "ref/resource")]
+    /// Completion based on a resource
     Resource {
         /// The URI or URI template of the resource
         uri: String,
     },
     #[serde(rename = "ref/prompt")]
+    /// Completion based on a prompt
     Prompt {
         /// The name of the prompt or prompt template
         name: String,
@@ -39,8 +41,11 @@ pub struct CompletionRequest {
 pub struct CompletionResult(pub Vec<CompletionResultItem>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// An item in a completion result
 pub struct CompletionResultItem {
+    /// The completion text suggestion
     pub text: String,
+    /// Optional reason why the completion was finished
     pub finish_reason: Option<String>,
 }
 

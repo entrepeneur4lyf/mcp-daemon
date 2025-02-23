@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 mod error;
 pub use error::{TransportError, TransportErrorCode};
 
+/// Result type for transport operations
 pub type Result<T> = std::result::Result<T, TransportError>;
 
 mod stdio_transport;
@@ -25,6 +26,10 @@ pub use http_transport::*;
 pub type Message = JsonRpcMessage;
 
 #[async_trait]
+/// Transport layer trait for handling MCP protocol communication
+/// 
+/// Implementations of this trait handle the sending and receiving of messages
+/// over various transport protocols (stdio, websockets, SSE, etc.)
 pub trait Transport: Send + Sync + 'static {
     /// Send a message to the transport
     /// 
@@ -73,23 +78,33 @@ impl Default for JsonRpcVersion {
 }
 
 impl JsonRpcVersion {
+    /// Returns the string representation of the JSON-RPC version
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
+/// A JSON-RPC message that can be either a request, response, or notification
+/// 
+/// This enum represents the three possible message types in the JSON-RPC protocol.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum JsonRpcMessage {
+    /// JSON-RPC response message
     Response(JsonRpcResponse),
+    /// JSON-RPC request message
     Request(JsonRpcRequest),
+    /// JSON-RPC notification message
     Notification(JsonRpcNotification),
 }
 
 // json rpc types
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+/// A JSON-RPC request message
+/// 
+/// Contains a method name to invoke and optional parameters
 pub struct JsonRpcRequest {
     pub id: RequestId,
     pub method: String,
@@ -102,6 +117,9 @@ pub struct JsonRpcRequest {
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 #[serde(default)]
+/// A JSON-RPC notification message
+/// 
+/// Similar to a request but does not expect a response
 pub struct JsonRpcNotification {
     pub method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,6 +131,9 @@ pub struct JsonRpcNotification {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
+/// A JSON-RPC response message
+/// 
+/// Contains either a result or an error in response to a request
 pub struct JsonRpcResponse {
     /// The request ID this response corresponds to
     pub id: RequestId,
@@ -129,6 +150,9 @@ pub struct JsonRpcResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
+/// A JSON-RPC error object
+/// 
+/// Contains error details when a request fails
 pub struct JsonRpcError {
     /// Error code
     pub code: i32,

@@ -9,7 +9,9 @@ use crate::types::{Resource, ResourceContents};
 use std::collections::HashSet;
 use tokio::sync::broadcast;
 
+/// Result type for listing resources
 pub type ListResourcesResult = Vec<Resource>;
+/// Result type for reading resources
 pub type ReadResourceResult = Vec<ResourceContents>;
 
 // Type aliases for complex Future types
@@ -131,9 +133,11 @@ impl ResourceTemplate {
 
 /// A callback that can list resources matching a template
 pub trait ListResourcesCallback: Send + Sync {
+    /// Calls the list resources function
     fn call(&self) -> ListResourcesFuture;
 }
 
+/// Callback function for listing resources
 pub struct ListResourcesCallbackFn(ListResourcesFn);
 
 impl ListResourcesCallback for ListResourcesCallbackFn {
@@ -144,9 +148,11 @@ impl ListResourcesCallback for ListResourcesCallbackFn {
 
 /// A callback that can read a resource
 pub trait ReadResourceCallback: Send + Sync {
+    /// Calls the read resource function with the given URI
     fn call(&self, uri: &Url) -> ReadResourceFuture;
 }
 
+/// Callback function for reading resources
 pub struct ReadResourceCallbackFn(pub ReadResourceFn);
 
 impl ReadResourceCallback for ReadResourceCallbackFn {

@@ -1,9 +1,9 @@
-//! Benchmarks for async-mcp
+//! Benchmarks for mcp_daemon
 //! 
-//! This module provides performance benchmarks for key components of the async-mcp crate.
+//! This module provides performance benchmarks for key components of the mcp_daemon crate.
 //! Benchmarks are organized into logical groups for better comparison and analysis.
 
-use async_mcp::{
+use mcp_daemon::{
     completable::{Completable, CompletableString, FixedCompletions},
     server::{
         notifications::{CancelledParams, Notification, NotificationSender},
@@ -46,7 +46,7 @@ struct MockNotificationSender;
 
 #[async_trait]
 impl NotificationSender for MockNotificationSender {
-    async fn send(&self, _: Notification) -> Result<(), async_mcp::server::error::ServerError> {
+    async fn send(&self, _: Notification) -> Result<(), mcp_daemon::server::error::ServerError> {
         Ok(())
     }
 }
