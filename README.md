@@ -1,4 +1,7 @@
-# Async MCP
+# mcpDaemon
+
+## Overview
+
 The most advanced and complete implementation of the Model Context Protocol (MCP) specification. This Rust implementation goes beyond the standard specification to provide:
 
 - **Full Specification Coverage**: Implements every feature from the latest MCP spec
@@ -9,8 +12,6 @@ The most advanced and complete implementation of the Model Context Protocol (MCP
 
 This library sets the standard for MCP implementations with its comprehensive feature set and robust error handling.
 
-[![Crates.io](https://img.shields.io/crates/v/async-mcp)](https://crates.io/crates/async-mcp)
-
 > **Note**: While this implementation provides the most complete coverage of the MCP specification, including features like sampling, roots, and completion that are not yet available in other implementations, it is still under active development.
 
 ## Installation
@@ -19,11 +20,15 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-async-mcp = "0.0.6"
+mcpDaemon = "0.1.0"
 ```
 
 ## Overview
-This is an implementation of the [Model Context Protocol](https://github.com/modelcontextprotocol) defined by Anthropic.
+This is an implementation of the [Model Context Protocol](https://github.com/modelcontextprotocol) defined by Anthropic, with extensive modifications and improvements.
+
+## Repository
+
+The mcpDaemon repository can be found at: https://github.com/entrepeneur4lyf/mcpDaemon
 
 ## Features
 
@@ -186,7 +191,7 @@ let transport = ClientInMemoryTransport::new(|t| tokio::spawn(inmemory_server(t)
 let transport = ClientSseTransportBuilder::new(server_url).build();
 
 // WS Transport
-let transport = async_mcp::transport::ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string()).build();
+let transport = mcpDaemon::transport::ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string()).build();
 ```
 
 #### Making Requests
@@ -195,7 +200,7 @@ let transport = async_mcp::transport::ClientWsTransportBuilder::new("ws://localh
 transport.open().await?;
 
 // Create and start client
-let client = async_mcp::client::ClientBuilder::new(transport.clone()).build();
+let client = mcpDaemon::client::ClientBuilder::new(transport.clone()).build();
 let client_clone = client.clone();
 let _client_handle = tokio::spawn(async move { client_clone.start().await });
 
@@ -230,7 +235,7 @@ Once servers are running, you can connect to them using the client:
 ```rust
 // Example: Using Brave Search server
 let transport = ClientSseTransportBuilder::new("http://localhost:3000/sse").build();
-let client = async_mcp::client::ClientBuilder::new(transport.clone()).build();
+let client = mcpDaemon::client::ClientBuilder::new(transport.clone()).build();
 
 // Make a search request
 let response = client
@@ -260,11 +265,6 @@ Common MCP servers include:
 
 Each server provides its own set of tools and resources that can be used through the MCP protocol. Check individual server documentation for specific capabilities and usage details.
 
-## Complete Examples
-For full working examples, check out:
-- [Ping Pong Example](./examples/pingpong/)
-- [File System Example](examples/file_system/README.md)
-- [Knowledge Graph Memory Example](examples/knowledge_graph_memory/README.md)
 
 ## Related SDKs
 
@@ -352,3 +352,13 @@ For the complete feature set, please refer to the [MCP specification](https://sp
   - [x] Progress Notifications
   - [x] Progress Tokens
   - [x] Progress Values
+
+
+
+## License
+
+This project is licensed under the Apache License 2.0, as was the original async-mcp project.
+
+## Acknowledgements
+
+Special thanks to the original author of async-mcp, [v3g42](https://github.com/v3g42), for laying the foundation for this project.

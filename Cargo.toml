@@ -1,14 +1,14 @@
 [package]
-name = "async-mcp"
-version = "0.0.6"
+name = "mcpDaemon"
+version = "0.1.0"
 edition = "2021"
-description = "Async Implementation of Model Context Protocol (MCP)"
-repository = "https://github.com/DistriAi/async-mcp"
+description = "Async Implementation of Model Context Protocol (MCP) - Fork of async-mcp"
+repository = "https://github.com/entrepeneur4lyf/mcpDaemon"
 license = "Apache-2.0"
-authors = ["https://github.com/v3g42", "https://github.com/entrepeneur4lyf"]
-documentation = "https://github.com/DistriAi/async-mcp#readme"
-homepage = "https://github.com/DistriAi/async-mcp"
-keywords = ["async", "mcp", "protocol", "Anthropic"]
+authors = ["Shawn McAllister - https://github.com/entrepeneur4lyf", Original author: https://github.com/v3g42"]
+documentation = "https://github.com/entrepeneur4lyf/mcpDaemon#readme"
+homepage = "https://github.com/entrepeneur4lyf/mcpDaemon"
+keywords = ["async", "mcp", "protocol", "daemon"]
 categories = ["asynchronous", "network-programming"]
 readme = "README.md"
 [dependencies]
