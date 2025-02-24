@@ -1,0 +1,104 @@
+---
+title: "Marketing API Quick Start"
+summary: "This guide will give you everything you need to start using the Docs Marketing API to manage audiences, control automation workflows, sync email activity with your database, and more."
+topicTitle: "Guides / Tutorials"
+topicSlug: "guides"
+nextTitle: "Create an account"
+nextSlug: "/guides/create-an-account"   
+---
+
+## At a glance
+
+We'll walk through generating your API key, installing the client library for your preferred language, and making your first API call—a simple request to the Ping endpoint.
+
+## Generate your API key
+
+The simplest way to authenticate a request to the Marketing API is using an [API key](#0).
+
+* Navigate to the API Keys section of your Docs account.
+* If you already have an API key listed to use for your application, simply copy it.
+
+Let's see an example:
+
+<ModalVideo
+  thumb="/images/content-image-01.jpg"
+  thumbWidth={680}
+  thumbHeight={382}
+  thumbAlt="Modal video thumbnail"
+  video="/videos/video.mp4"
+  videoWidth={1920}
+  videoHeight={1080} />
+
+If you're creating integrations that require access to Mailchimp on behalf of other Docs users, you'll want to [set up authentication via Oauth 2](#0) instead.
+
+## Install the client library for your language
+
+You can make calls to the Marketing API with whichever method you usually use to make HTTP requests, but Docs offers client libraries that make interacting with the API even simpler.
+
+To install the client library for your preferred language:
+
+<Image
+  src="/images/content-image-02.jpg"
+  width="680"
+  height="382"
+  alt="News inner"
+/>
+
+## Make your first API call
+
+To test that you have everything set up correctly, we'll make a simple request to the Ping endpoint. Hitting this endpoint acts as a health check on the Docs API service; it won't affect your account in any way.
+
+To find the value for the server parameter used in docs.setConfig, log into your Docs account and look at the URL in your browser. You'll see something like https://us19.admin.docs.com/; the us19 part is the server prefix. Note that your specific value may be different.
+
+```bash
+# install jq: https://docs.github.io/jq/download/
+
+dc="YOUR_DC"
+
+apikey="YOUR_API_KEY"
+
+curl -sS \
+
+  "https://${dc}.api.docs.com/3.0/ping" \
+  
+  --user "anystring:${apikey}" | jq -r
+```
+
+If everything was set up correctly and the request to ping was a success, the response should look like the following:
+
+## Configuration status
+
+There are a number of configuration status which are explained in detail in this article. Below is an index of all configuration status:
+
+<Table>
+  <THead>
+    <ThRow>
+      <Th>Status</Th>
+      <Th>Description</Th>
+    </ThRow>
+  </THead>
+  <TBody>
+    <TbRow>
+      <Td><Tag color="teal">Subscribed</Tag></Td>
+      <Td>The contact is subscribed to the list and can receive campaigns.</Td>
+    </TbRow>
+    <TbRow>
+      <Td><Tag color="rose">Unsubscribed</Tag></Td>
+      <Td>The contact is no longer subscribed to the list.</Td>
+    </TbRow>
+    <TbRow>
+      <Td><Tag color="purple">Cleaned</Tag></Td>
+      <Td>The contact bounced and was removed from the list.</Td>
+    </TbRow>
+    <TbRow>
+      <Td><Tag>Pending</Tag></Td>
+      <Td>The contact has not yet confirmed their subscription.</Td>
+    </TbRow>
+  </TBody>
+</Table>
+
+To test that you have everything set up correctly, we'll make a simple request to the Ping endpoint. Hitting this endpoint acts as a health check on the Docs API service; it won't affect your account in any way.
+
+HTTP requests are the backbone of the internet. Without them, we wouldn't be able to communicate with web servers and load the pages we see in our browser.
+
+This library is available on most Unix-like systems, and can be used to make HTTP requests to any HTTP server.
