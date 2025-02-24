@@ -16,7 +16,8 @@ exclude = [
     ".cline/*",
     ".windsurf/*",
     ".roo/*",
-    ".cursoir/*",
+    ".cursor/*",
+    "task-log*",
 ]
 repository = "https://github.com/entrepeneur4lyf/mcp-daemon"
 license = "Apache-2.0"
@@ -24,7 +25,7 @@ authors = ["Shawn McAllister - https://github.com/entrepeneur4lyf", "Original au
 documentation = "https://github.com/entrepeneur4lyf/mcp-daemon#readme"
 homepage = "https://github.com/entrepeneur4lyf/mcp-daemon"
 keywords = ["async", "mcp", "protocol", "daemon", "extended"]
-categories = ["asynchronous", "development-tools", "web-programming::http-client", "web-programming::http-server", "web-programming::websocket", "network-programming", "web-programming"]
+categories = ["asynchronous", "development-tools", "web-programming::http-client", "web-programming::http-server", "web-programming::websocket"]
 readme = "README.md"
 
 [dependencies]
