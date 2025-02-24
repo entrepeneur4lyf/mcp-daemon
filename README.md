@@ -1,5 +1,7 @@
 # mcp-daemon
 
+![Crates.io Total Downloads](https://img.shields.io/crates/d/mcp_daemon?style=plastic&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fmcp_daemon)![docs.rs](https://img.shields.io/docsrs/mcp_daemon%2F0.2.1?style=plastic&link=https%3A%2F%2Fdocs.rs%2Fcrate%2Fmcp_daemon%2F0.2.1)
+
 ## Overview
 
 The most advanced and complete implementation of the Model Context Protocol (MCP) specification. This Rust implementation goes beyond the standard specification to provide:
@@ -20,7 +22,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mcp-daemon = "0.2.0"
+mcp-daemon = "0.2.1"
 ```
 
 ## Overview
@@ -102,7 +104,7 @@ The bridge layer automatically handles conversion between MCP tools and provider
   - Full support for all tool choice options (auto/required/none/specific)
   - Parallel function calling support
   - Streaming support for real-time function calls
-  
+
 - **Ollama Integration**
   - Automatic adaptation to Ollama's capabilities
   - Handles Ollama's "auto-only" tool choice limitation
@@ -159,11 +161,11 @@ run_http_server(config, None, |transport| async move {
 
 Local Endpoints
 ```
-// With TLS enabled:
+# With TLS enabled:
 WebSocket endpoint: wss://127.0.0.1:3004/ws
 SSE endpoint: https://127.0.0.1:3004/sse
 
-// Without TLS:
+# Without TLS:
 WebSocket endpoint: ws://127.0.0.1:3004/ws
 SSE endpoint: http://127.0.0.1:3004/sse
 ```
@@ -265,7 +267,6 @@ Common MCP servers include:
 
 Each server provides its own set of tools and resources that can be used through the MCP protocol. Check individual server documentation for specific capabilities and usage details.
 
-
 ## Related SDKs
 
 ### Official
@@ -352,8 +353,6 @@ For the complete feature set, please refer to the [MCP specification](https://sp
   - [x] Progress Notifications
   - [x] Progress Tokens
   - [x] Progress Values
-
-
 
 ## License
 
