@@ -49,7 +49,6 @@
 //! * [`crate::types`] - Core MCP types used in the conversion process
 
 use super::{ToolCall, FunctionCall, ToolExecution, ToolResponse, mcp_to_function, tool_call_to_mcp, mcp_to_function_response};
-use crate::transport::{TransportError, TransportErrorCode};
 use crate::types::Tool;
 use serde::Deserialize;
 
@@ -122,12 +121,13 @@ pub fn convert_tools_for_ollama(tools: &[Tool]) -> serde_json::Value {
 ///
 /// ```rust
 /// use mcp_daemon::bridge::ollama::parse_ollama_response;
+/// use crate::transport::TransportError;
 ///
 /// let response = r#"<function>calculator</function><args>{"operation":"add","a":1,"b":2}</args>"#;
 /// let execution = parse_ollama_response(response).unwrap().unwrap();
 /// assert_eq!(execution.name, "calculator");
 /// ```
-pub fn parse_ollama_response(response: &str) -> Result<Option<ToolExecution>, TransportError> {
+pub fn parse_ollama_response(response: &str) -> Result<Option<ToolExecution>, crate::transport::TransportError> {
     // Look for function call pattern in response
     if let Some(function_call) = extract_function_call(response) {
         let tool_call = ToolCall {

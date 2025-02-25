@@ -506,7 +506,7 @@ impl SamplingRequest {
 
         // Check temperature is within valid range if provided
         if let Some(temp) = self.temperature {
-            if temp < 0.0 || temp > 1.0 {
+            if !(0.0..=1.0).contains(&temp) {
                 return Err(SamplingError::InvalidRequest(
                     "Temperature must be between 0.0 and 1.0".to_string()
                 ).into());
@@ -524,21 +524,21 @@ impl SamplingRequest {
         if let Some(prefs) = &self.model_preferences {
             // Check priority values are within valid range if provided
             if let Some(cost) = prefs.cost_priority {
-                if cost < 0.0 || cost > 1.0 {
+                if !(0.0..=1.0).contains(&cost) {
                     return Err(SamplingError::InvalidRequest(
                         "cost_priority must be between 0.0 and 1.0".to_string()
                     ).into());
                 }
             }
             if let Some(speed) = prefs.speed_priority {
-                if speed < 0.0 || speed > 1.0 {
+                if !(0.0..=1.0).contains(&speed) {
                     return Err(SamplingError::InvalidRequest(
                         "speed_priority must be between 0.0 and 1.0".to_string()
                     ).into());
                 }
             }
             if let Some(intelligence) = prefs.intelligence_priority {
-                if intelligence < 0.0 || intelligence > 1.0 {
+                if !(0.0..=1.0).contains(&intelligence) {
                     return Err(SamplingError::InvalidRequest(
                         "intelligence_priority must be between 0.0 and 1.0".to_string()
                     ).into());
@@ -1003,17 +1003,17 @@ impl RegisteredSampling {
 
         // Apply timeout if configured
         let future = (self.callback)(sanitized_request);
-        let result = if let Some(timeout_duration) = self.timeout {
+        
+
+        // Return the result
+        if let Some(timeout_duration) = self.timeout {
             match tokio::time::timeout(timeout_duration, future).await {
                 Ok(result) => result,
                 Err(_) => Err(SamplingError::Timeout(timeout_duration).into()),
             }
         } else {
             future.await
-        };
-
-        // Return the result
-        result
+        }
     }
 
     /// Include context in a sampling request
