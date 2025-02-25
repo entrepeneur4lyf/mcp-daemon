@@ -1,27 +1,98 @@
-//! MCP to OpenAI Function Call Bridge
-//! 
+//! # MCP to OpenAI Function Call Bridge
+//!
 //! This module provides conversion between MCP tools and OpenAI function calls.
 //! It allows MCP tools to be used with any LLM that supports OpenAI's function calling format.
+//!
+//! ## Overview
+//!
+//! The OpenAI bridge enables interoperability between the Model Context Protocol (MCP) tool system
+//! and OpenAI's function calling API. This allows MCP servers to expose their tools to LLMs that
+//! implement the OpenAI function calling specification.
+//!
+//! The bridge provides bidirectional conversion:
+//! * Converting MCP tools to OpenAI function definitions
+//! * Converting OpenAI function calls to MCP tool executions
+//! * Converting MCP tool responses to OpenAI function responses
+//!
+//! ## Examples
+//!
+//! ```rust
+//! use mcp_daemon::bridge::openai::{mcp_to_function, mcp_to_function_response};
+//! use mcp_daemon::types::Tool;
+//!
+//! // Define an MCP tool
+//! let tool = Tool {
+//!     name: "weather".to_string(),
+//!     description: Some("Get the current weather".to_string()),
+//!     input_schema: serde_json::json!({
+//!         "type": "object",
+//!         "properties": {
+//!             "location": { "type": "string" }
+//!         },
+//!         "required": ["location"]
+//!     }),
+//! };
+//!
+//! // Convert to OpenAI function format
+//! let functions = mcp_to_function(&[tool]);
+//!
+//! // Use with an OpenAI-compatible API
+//! // ...
+//!
+//! // Convert tool response back to OpenAI format
+//! let tool_response = ToolResponse {
+//!     result: serde_json::json!({"temperature": 72, "conditions": "sunny"}),
+//!     error: None,
+//! };
+//! let function_response = mcp_to_function_response("weather", &tool_response);
+//! ```
+//!
+//! ## Related Modules
+//!
+//! * [`crate::bridge::ollama`] - Ollama-specific bridge implementation
+//! * [`crate::types`] - Core MCP types used in the conversion process
 
-use crate::transport::error::TransportError;
-use crate::types::{Tool, ServerCapabilities};
+use crate::transport::TransportError;
+use crate::types::Tool;
 use serde::{Deserialize, Serialize};
 
 /// OpenAI function definition format
+///
+/// Represents a function definition in the OpenAI function calling API.
+///
+/// # Fields
+///
+/// * `name` - The name of the function
+/// * `description` - Optional description of the function's purpose
+/// * `parameters` - JSON Schema object defining the function's parameters
+/// * `strict` - Whether the function should strictly validate parameters (defaults to true)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FunctionDefinition {
+    /// The name of the function
     pub name: String,
+    /// Optional description of the function's purpose
     pub description: Option<String>,
+    /// JSON Schema object defining the function's parameters
     pub parameters: serde_json::Value,
+    /// Whether the function should strictly validate parameters (defaults to true)
     #[serde(default = "default_strict")]
     pub strict: bool,
 }
 
 /// OpenAI function format
+///
+/// Represents a complete function object in the OpenAI API.
+///
+/// # Fields
+///
+/// * `function_type` - The type of the function (always "function")
+/// * `function` - The function definition
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Function {
+    /// The type of the function (always "function")
     #[serde(rename = "type")]
     pub function_type: String,
+    /// The function definition
     pub function: FunctionDefinition,
 }
 
@@ -30,13 +101,57 @@ fn default_strict() -> bool {
 }
 
 /// OpenAI function response format
+///
+/// Represents a response from a function call in the OpenAI API.
+///
+/// # Fields
+///
+/// * `name` - The name of the function that was called
+/// * `content` - The string content of the function's response
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FunctionResponse {
+    /// The name of the function that was called
     pub name: String,
+    /// The string content of the function's response
     pub content: String,
 }
 
 /// Convert MCP tools to OpenAI function format
+///
+/// Transforms an array of MCP Tool objects into OpenAI Function objects.
+///
+/// # Arguments
+///
+/// * `tools` - A slice of MCP Tool objects to convert
+///
+/// # Returns
+///
+/// A vector of OpenAI Function objects
+///
+/// # Examples
+///
+/// ```rust
+/// use mcp_daemon::bridge::openai::mcp_to_function;
+/// use mcp_daemon::types::Tool;
+///
+/// let tool = Tool {
+///     name: "calculator".to_string(),
+///     description: Some("Perform calculations".to_string()),
+///     input_schema: serde_json::json!({
+///         "type": "object",
+///         "properties": {
+///             "operation": { "type": "string" },
+///             "a": { "type": "number" },
+///             "b": { "type": "number" }
+///         },
+///         "required": ["operation", "a", "b"]
+///     }),
+/// };
+///
+/// let functions = mcp_to_function(&[tool]);
+/// assert_eq!(functions.len(), 1);
+/// assert_eq!(functions[0].function.name, "calculator");
+/// ```
 pub fn mcp_to_function(tools: &[Tool]) -> Vec<Function> {
     tools.iter().map(|tool| {
         // Get the base schema
@@ -61,26 +176,118 @@ pub fn mcp_to_function(tools: &[Tool]) -> Vec<Function> {
     }).collect()
 }
 
+/// Convert OpenAI function to MCP tool execution
+///
+/// Transforms an OpenAI Function object into an MCP ToolExecution object.
+///
+/// # Arguments
+///
+/// * `function` - The OpenAI Function object to convert
+///
+/// # Returns
+///
+/// An MCP ToolExecution object wrapped in a Result
+///
+/// # Errors
+///
+/// Returns a TransportError if the function parameters cannot be processed
+///
+/// # Examples
+///
+/// ```rust
+/// use mcp_daemon::bridge::openai::{function_to_mcp, Function, FunctionDefinition};
+///
+/// let function = Function {
+///     function_type: "function".to_string(),
+///     function: FunctionDefinition {
+///         name: "calculator".to_string(),
+///         description: Some("Perform calculations".to_string()),
+///         parameters: serde_json::json!({
+///             "arg1": "test"
+///         }),
+///         strict: true,
+///     },
+/// };
+///
+/// let execution = function_to_mcp(&function).unwrap();
+/// assert_eq!(execution.name, "calculator");
+/// ```
+pub fn function_to_mcp(function: &Function) -> Result<ToolExecution, TransportError> {
+    Ok(ToolExecution {
+        name: function.function.name.clone(),
+        arguments: function.function.parameters.clone(),
+    })
+}
+
 /// OpenAI tool call format
+///
+/// Represents a tool call in the OpenAI API response.
+///
+/// # Fields
+///
+/// * `id` - The unique identifier for this tool call
+/// * `function` - The function call details
 #[derive(Debug, Deserialize)]
 pub struct ToolCall {
+    /// The unique identifier for this tool call
     pub id: String,
+    /// The function call details
     pub function: FunctionCall,
 }
 
 /// OpenAI function call format in responses
+///
+/// Represents a function call in the OpenAI API response.
+///
+/// # Fields
+///
+/// * `name` - The name of the function being called
+/// * `arguments` - A JSON string containing the function arguments
 #[derive(Debug, Deserialize)]
 pub struct FunctionCall {
+    /// The name of the function being called
     pub name: String,
+    /// A JSON string containing the function arguments
     pub arguments: String,
 }
 
 /// Convert OpenAI tool call to MCP tool execution
+///
+/// Transforms an OpenAI ToolCall object into an MCP ToolExecution object.
+///
+/// # Arguments
+///
+/// * `tool_call` - The OpenAI ToolCall object to convert
+///
+/// # Returns
+///
+/// An MCP ToolExecution object wrapped in a Result
+///
+/// # Errors
+///
+/// Returns a TransportError if the function arguments cannot be parsed as valid JSON
+///
+/// # Examples
+///
+/// ```rust
+/// use mcp_daemon::bridge::openai::{tool_call_to_mcp, ToolCall, FunctionCall};
+///
+/// let tool_call = ToolCall {
+///     id: "call_123".to_string(),
+///     function: FunctionCall {
+///         name: "calculator".to_string(),
+///         arguments: r#"{"operation":"add","a":1,"b":2}"#.to_string(),
+///     },
+/// };
+///
+/// let execution = tool_call_to_mcp(&tool_call).unwrap();
+/// assert_eq!(execution.name, "calculator");
+/// ```
 pub fn tool_call_to_mcp(tool_call: &ToolCall) -> Result<ToolExecution, TransportError> {
     // Parse the arguments string as JSON
     let arguments = serde_json::from_str(&tool_call.function.arguments).map_err(|e| {
         TransportError::new(
-            crate::transport::error::TransportErrorCode::InvalidMessage,
+            crate::transport::TransportErrorCode::InvalidMessage,
             format!("Failed to parse function arguments: {}", e)
         )
     })?;
@@ -92,6 +299,32 @@ pub fn tool_call_to_mcp(tool_call: &ToolCall) -> Result<ToolExecution, Transport
 }
 
 /// Convert MCP tool response to OpenAI function response
+///
+/// Transforms an MCP ToolResponse into an OpenAI FunctionResponse.
+///
+/// # Arguments
+///
+/// * `tool_name` - The name of the tool that was executed
+/// * `response` - The MCP ToolResponse object
+///
+/// # Returns
+///
+/// An OpenAI FunctionResponse object
+///
+/// # Examples
+///
+/// ```rust
+/// use mcp_daemon::bridge::openai::{mcp_to_function_response, ToolResponse};
+///
+/// let response = ToolResponse {
+///     result: serde_json::json!({"sum": 3}),
+///     error: None,
+/// };
+///
+/// let function_response = mcp_to_function_response("calculator", &response);
+/// assert_eq!(function_response.name, "calculator");
+/// assert_eq!(function_response.content, r#"{"sum":3}"#);
+/// ```
 pub fn mcp_to_function_response(tool_name: &str, response: &ToolResponse) -> FunctionResponse {
     FunctionResponse {
         name: tool_name.to_string(),
@@ -104,16 +337,34 @@ pub fn mcp_to_function_response(tool_name: &str, response: &ToolResponse) -> Fun
 }
 
 /// MCP message format for tool execution
+///
+/// Represents a tool execution request in the MCP protocol.
+///
+/// # Fields
+///
+/// * `name` - The name of the tool to execute
+/// * `arguments` - The arguments to pass to the tool
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ToolExecution {
+    /// The name of the tool to execute
     pub name: String,
+    /// The arguments to pass to the tool
     pub arguments: serde_json::Value,
 }
 
 /// MCP message format for tool response  
+///
+/// Represents a tool execution response in the MCP protocol.
+///
+/// # Fields
+///
+/// * `result` - The result of the tool execution
+/// * `error` - Optional error message if the tool execution failed
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ToolResponse {
+    /// The result of the tool execution
     pub result: serde_json::Value,
+    /// Optional error message if the tool execution failed
     pub error: Option<String>,
 }
 
@@ -157,7 +408,7 @@ mod tests {
             },
         };
 
-        let execution = function_to_mcp(&function).unwrap();
+        let execution = super::function_to_mcp(&function).unwrap();
         assert_eq!(execution.name, "test_tool");
         assert_eq!(execution.arguments, serde_json::json!({"arg1": "test"}));
     }

@@ -31,15 +31,49 @@ pub struct Claims {
     pub iat: usize,
 }
 
-#[derive(Deserialize)]
 /// Query parameters for SSE messages
+///
+/// These parameters are used to identify the session when sending messages
+/// to a specific SSE connection.
+#[derive(Deserialize)]
 pub struct MessageQuery {
+    /// Session ID for identifying the target connection
     #[serde(rename = "sessionId")]
     session_id: Option<String>,
 }
 
-#[derive(Clone)]
 /// Configuration for the SSE HTTP server
+///
+/// This struct contains all the configuration options for the HTTP server
+/// that handles SSE connections, including port, CORS settings, and TLS options.
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::sse::http_server::{ServerConfig, CorsConfig, TlsConfig};
+///
+/// // Create a basic server configuration
+/// let config = ServerConfig {
+///     port: 8080,
+///     cors: None,
+///     tls: None,
+/// };
+///
+/// // Create a server with CORS and TLS
+/// let secure_config = ServerConfig {
+///     port: 8443,
+///     cors: Some(CorsConfig {
+///         allowed_origin: "https://example.com".to_string(),
+///         allow_credentials: true,
+///         max_age: Some(3600),
+///     }),
+///     tls: Some(TlsConfig {
+///         cert_path: "/path/to/cert.pem".to_string(),
+///         key_path: "/path/to/key.pem".to_string(),
+///     }),
+/// };
+/// ```
+#[derive(Clone)]
 pub struct ServerConfig {
     /// Port to listen on
     pub port: u16,
@@ -59,8 +93,11 @@ impl Default for ServerConfig {
     }
 }
 
-#[derive(Clone)]
 /// Configuration for CORS
+///
+/// This struct contains settings for Cross-Origin Resource Sharing (CORS),
+/// which controls how web browsers restrict cross-origin HTTP requests.
+#[derive(Clone)]
 pub struct CorsConfig {
     /// Allowed origin for CORS
     pub allowed_origin: String,
@@ -70,8 +107,11 @@ pub struct CorsConfig {
     pub max_age: Option<usize>,
 }
 
-#[derive(Clone)]
 /// Configuration for TLS
+///
+/// This struct contains the paths to the TLS certificate and key files
+/// used for securing HTTP connections with HTTPS.
+#[derive(Clone)]
 pub struct TlsConfig {
     /// Path to the TLS certificate file
     pub cert_path: String,
@@ -79,11 +119,17 @@ pub struct TlsConfig {
     pub key_path: String,
 }
 
-#[derive(Clone)]
 /// State for managing SSE sessions
+///
+/// This struct maintains the state of active SSE sessions and provides
+/// methods for creating and managing server instances for each session.
+#[derive(Clone)]
 pub struct SessionState {
+    /// Map of session IDs to their corresponding transports
     sessions: Arc<Mutex<HashMap<String, ServerHttpTransport>>>,
+    /// Port the server is listening on
     port: u16,
+    /// Function for building server instances
     build_server: Arc<
         dyn Fn(
                 ServerHttpTransport,
@@ -95,6 +141,44 @@ pub struct SessionState {
 }
 
 /// Run a server instance with the specified transport
+///
+/// This function sets up and runs an HTTP server that handles SSE and WebSocket
+/// connections, with optional TLS and JWT authentication.
+///
+/// # Arguments
+///
+/// * `config` - Server configuration including port, CORS, and TLS settings
+/// * `jwt_secret` - Optional JWT secret for authentication
+/// * `build_server` - Function that builds an MCP server instance for each connection
+///
+/// # Returns
+///
+/// A Result indicating success or failure
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::sse::http_server::{run_http_server, ServerConfig};
+/// use mcp_daemon::server::Server;
+/// use mcp_daemon::transport::ServerHttpTransport;
+///
+/// #[tokio::main]
+/// async fn main() -> anyhow::Result<()> {
+///     let config = ServerConfig::default();
+///     
+///     run_http_server(
+///         config,
+///         None, // No JWT authentication
+///         |transport| async move {
+///             // Create a new server instance for this transport
+///             let server = Server::new("example-server", "1.0.0");
+///             // Connect the transport to the server
+///             // ... additional setup ...
+///             Ok(server)
+///         },
+///     ).await
+/// }
+/// ```
 pub async fn run_http_server<F, Fut>(
     config: ServerConfig,
     jwt_secret: Option<String>,
@@ -177,6 +261,20 @@ where
 }
 
 /// Run an HTTP server with the specified parameters
+///
+/// This is an alternative version of `run_http_server` that takes individual parameters
+/// instead of a `ServerConfig` struct.
+///
+/// # Arguments
+///
+/// * `port` - Port to listen on
+/// * `sessions` - Shared map of session IDs to transports
+/// * `auth_config` - Optional JWT authentication configuration
+/// * `build_server` - Function that builds an MCP server instance for each connection
+///
+/// # Returns
+///
+/// A Result indicating success or failure
 pub async fn http_server(
     port: u16,
     sessions: Arc<Mutex<HashMap<String, ServerHttpTransport>>>,
@@ -214,9 +312,17 @@ pub async fn http_server(
 
 /// Handles SSE requests
 ///
+/// This function processes incoming SSE connection requests, creates a new session,
+/// and sets up the transport for bidirectional communication.
+///
 /// # Arguments
+///
 /// * `req` - The HTTP request
 /// * `session_state` - Shared session state
+///
+/// # Returns
+///
+/// An SSE responder that maintains the connection with the client
 pub async fn sse_handler(
     req: actix_web::HttpRequest,
     session_state: web::Data<SessionState>,
@@ -274,6 +380,20 @@ pub async fn sse_handler(
     Either::Right(responder)
 }
 
+/// Handles incoming messages for SSE connections
+///
+/// This function processes messages sent to the `/message` endpoint and forwards
+/// them to the appropriate SSE connection based on the session ID.
+///
+/// # Arguments
+///
+/// * `query` - Query parameters containing the session ID
+/// * `message` - The message to send
+/// * `session_state` - Shared session state
+///
+/// # Returns
+///
+/// An HTTP response indicating success or failure
 async fn message_handler(
     query: Query<MessageQuery>,
     message: web::Json<Message>,
@@ -308,6 +428,20 @@ async fn message_handler(
     }
 }
 
+/// Handles WebSocket connection requests
+///
+/// This function processes incoming WebSocket connection requests, creates a new session,
+/// and sets up the transport for bidirectional communication.
+///
+/// # Arguments
+///
+/// * `req` - The HTTP request
+/// * `body` - The request payload
+/// * `session_state` - Shared session state
+///
+/// # Returns
+///
+/// An HTTP response for the WebSocket upgrade
 async fn ws_handler(
     req: actix_web::HttpRequest,
     body: Payload,

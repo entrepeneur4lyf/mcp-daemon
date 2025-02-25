@@ -1,5 +1,54 @@
-//! Server-sent events (SSE) transport implementation using actix-web-lab
-//! This module provides a transport layer for server-sent events using the actix-web-lab crate.
+//! Server-sent events (SSE) transport implementation for the Model Context Protocol
+//!
+//! This module provides a transport layer for server-sent events (SSE) using the actix-web-lab crate.
+//! SSE is a web technology where a browser receives automatic updates from a server via HTTP connection.
+//! It's a standardized way to establish a long-lived, unidirectional connection from server to client.
+//!
+//! The SSE transport in MCP is primarily used for:
+//! - Streaming responses from server to client
+//! - Sending real-time updates and notifications
+//! - Providing progress information for long-running operations
+//! - Maintaining a persistent connection with minimal overhead
+//!
+//! Unlike WebSockets, SSE is unidirectional (server to client only) and uses standard HTTP,
+//! making it simpler to implement and more compatible with existing infrastructure.
+//!
+//! # Examples
+//!
+//! ```
+//! use mcp_daemon::transport::sse_transport::ServerSseTransport;
+//! use mcp_daemon::transport::Transport;
+//!
+//! async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create a new SSE transport with a responder for use with actix-web
+//!     let (transport, responder) = ServerSseTransport::new_with_responder(100);
+//!     
+//!     // Send a message through the transport
+//!     let message = serde_json::json!({
+//!         "jsonrpc": "2.0",
+//!         "method": "notification",
+//!         "params": { "type": "update", "data": "New data available" }
+//!     });
+//!     transport.send(&message).await?;
+//!     
+//!     // Send a named event with data
+//!     transport.send_event("status", "Processing request...").await?;
+//!     
+//!     // Send a JSON-serialized data message
+//!     transport.send_json(serde_json::json!({
+//!         "progress": 50,
+//!         "status": "in_progress"
+//!     })).await?;
+//!     
+//!     // Send a comment (useful for keep-alive)
+//!     transport.send_comment("keep-alive").await?;
+//!     
+//!     // The responder would be returned from an actix-web handler
+//!     // return Ok(responder);
+//!     
+//!     Ok(())
+//! }
+//! ```
 
 use std::time::Duration;
 use async_trait::async_trait;
@@ -12,6 +61,36 @@ use tokio_stream::wrappers::ReceiverStream;
 use crate::transport::{Message, Result, Transport};
 
 /// Server-side SSE transport implementation
+///
+/// This transport provides a way to send server-sent events (SSE) to clients.
+/// It implements the `Transport` trait and provides additional methods for
+/// sending different types of SSE messages.
+///
+/// SSE is unidirectional (server to client only), so the `receive` method
+/// always returns `None`. For bidirectional communication, consider using
+/// the WebSocket transport instead.
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+/// use mcp_daemon::transport::Transport;
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create a new SSE transport with a responder
+///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
+///     
+///     // Send a message
+///     let message = serde_json::json!({
+///         "jsonrpc": "2.0",
+///         "method": "notification",
+///         "params": { "type": "update", "data": "New data available" }
+///     });
+///     transport.send(&message).await?;
+///     
+///     Ok(())
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ServerSseTransport {
     sender: mpsc::Sender<Result<sse::Event>>,
@@ -19,12 +98,63 @@ pub struct ServerSseTransport {
 
 impl ServerSseTransport {
     /// Creates a new SSE transport with the given channel capacity
+    ///
+    /// This constructor creates a new SSE transport with a channel of the specified capacity,
+    /// but without returning the responder. This is useful when you want to create a transport
+    /// without immediately setting up the HTTP response.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - The capacity of the channel buffer
+    ///
+    /// # Returns
+    ///
+    /// A new `ServerSseTransport` instance
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    ///
+    /// // Create a new SSE transport with a buffer capacity of 100 messages
+    /// let transport = ServerSseTransport::new(100);
+    /// ```
     pub fn new(capacity: usize) -> Self {
         let (tx, _) = mpsc::channel(capacity);
         Self { sender: tx }
     }
 
     /// Creates a new SSE transport with the given channel capacity and returns the transport and responder
+    ///
+    /// This constructor creates a new SSE transport and returns both the transport and
+    /// an actix-web responder that can be used to send SSE messages to the client.
+    /// The responder includes a keep-alive mechanism that sends a comment every 15 seconds
+    /// to prevent the connection from timing out.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - The capacity of the channel buffer
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the transport and an actix-web responder
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    /// use actix_web::{web, App, HttpServer, Responder};
+    ///
+    /// async fn sse_handler() -> impl Responder {
+    ///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     // Store the transport somewhere for later use
+    ///     // ...
+    ///     
+    ///     // Return the responder
+    ///     responder
+    /// }
+    /// ```
     pub fn new_with_responder(capacity: usize) -> (Self, impl actix_web::Responder) {
         let (tx, rx) = mpsc::channel(capacity);
         let transport = Self { sender: tx };
@@ -34,6 +164,36 @@ impl ServerSseTransport {
     }
 
     /// Sends a message through the SSE channel
+    ///
+    /// This method serializes the message to JSON and sends it as an SSE data event.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    ///
+    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     let message = serde_json::json!({
+    ///         "jsonrpc": "2.0",
+    ///         "method": "notification",
+    ///         "params": { "type": "update", "data": "New data available" }
+    ///     });
+    ///     
+    ///     transport.send_message(message).await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn send_message(&self, message: Message) -> Result<()> {
         let json = serde_json::to_string(&message)?;
         self.sender
@@ -43,6 +203,30 @@ impl ServerSseTransport {
     }
 
     /// Sends a data message through the SSE channel
+    ///
+    /// This method sends a string as an SSE data event.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data to send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    ///
+    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     transport.send_data("Hello, world!").await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn send_data(&self, data: impl Into<String>) -> Result<()> {
         let data = ByteString::from(data.into());
         self.sender
@@ -52,6 +236,38 @@ impl ServerSseTransport {
     }
 
     /// Sends a JSON-serialized data message through the SSE channel
+    ///
+    /// This method serializes the data to JSON and sends it as an SSE data event.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data to serialize and send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    /// use serde_json::json;
+    ///
+    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     transport.send_json(json!({
+    ///         "status": "success",
+    ///         "message": "Operation completed",
+    ///         "data": {
+    ///             "id": 123,
+    ///             "name": "Example"
+    ///         }
+    ///     })).await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn send_json<T: Serialize>(&self, data: T) -> Result<()> {
         let json = serde_json::to_string(&data)?;
         let data = ByteString::from(json);
@@ -62,6 +278,39 @@ impl ServerSseTransport {
     }
 
     /// Sends a named event with data through the SSE channel
+    ///
+    /// This method sends a string as an SSE data event with a specified event name.
+    /// Named events can be used to categorize different types of messages.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The event name
+    /// * `data` - The data to send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    ///
+    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     // Send a progress update
+    ///     transport.send_event("progress", "50%").await?;
+    ///     
+    ///     // Send a status update
+    ///     transport.send_event("status", "Processing...").await?;
+    ///     
+    ///     // Send a completion event
+    ///     transport.send_event("complete", "Task finished successfully").await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn send_event(&self, event: impl Into<String>, data: impl Into<String>) -> Result<()> {
         let data = ByteString::from(data.into());
         let event = ByteString::from(event.into());
@@ -72,6 +321,35 @@ impl ServerSseTransport {
     }
 
     /// Sends a comment through the SSE channel
+    ///
+    /// This method sends a comment as an SSE comment event.
+    /// Comments are useful for keep-alive messages and debugging.
+    ///
+    /// # Arguments
+    ///
+    /// * `comment` - The comment to send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    ///
+    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+    ///     
+    ///     // Send a keep-alive comment
+    ///     transport.send_comment("keep-alive").await?;
+    ///     
+    ///     // Send a debug comment
+    ///     transport.send_comment("Debug: Processing item 42").await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn send_comment(&self, comment: impl Into<String>) -> Result<()> {
         let comment = ByteString::from(comment.into());
         self.sender
@@ -83,19 +361,52 @@ impl ServerSseTransport {
 
 #[async_trait]
 impl Transport for ServerSseTransport {
+    /// Sends a message through the transport
+    ///
+    /// This method delegates to `send_message` to send the message as an SSE data event.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or failure
     async fn send(&self, message: &Message) -> Result<()> {
         self.send_message(message.clone()).await
     }
 
+    /// Receives a message from the transport
+    ///
+    /// Since SSE is unidirectional (server to client only), this method always returns `Ok(None)`.
+    /// For bidirectional communication, consider using the WebSocket transport instead.
+    ///
+    /// # Returns
+    ///
+    /// Always returns `Ok(None)`
     async fn receive(&self) -> Result<Option<Message>> {
         // SSE is unidirectional, server to client only
         Ok(None)
     }
 
+    /// Opens the transport
+    ///
+    /// For the SSE transport, this is a no-op since the transport is initialized in the constructor.
+    ///
+    /// # Returns
+    ///
+    /// Always returns `Ok(())`
     async fn open(&self) -> Result<()> {
         Ok(())
     }
 
+    /// Closes the transport
+    ///
+    /// For the SSE transport, this is a no-op since the transport is closed when the client disconnects.
+    ///
+    /// # Returns
+    ///
+    /// Always returns `Ok(())`
     async fn close(&self) -> Result<()> {
         Ok(())
     }

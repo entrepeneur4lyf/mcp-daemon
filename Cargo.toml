@@ -1,8 +1,8 @@
 [package]
 name = "mcp_daemon"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
-description = "Diverged Implementation of Model Context Protocol (MCP) with Extended Functionality"
+description = "Opinionated Unofficial Implementation of Model Context Protocol (MCP) with Extended Functionality"
 rust-version = "1.70"  # Specify the minimum supported Rust version
 include = [
     "src/**/*",
@@ -55,6 +55,7 @@ futures-util = "0.3"
 pin-project-lite = "0.2"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 async-openai = { version = "0.19.0", features = ["native-tls"] }
+regex = "1.11.1"
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }

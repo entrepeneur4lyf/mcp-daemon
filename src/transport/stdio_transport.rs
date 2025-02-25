@@ -1,3 +1,81 @@
+//! Standard I/O (stdio) transport implementation for the Model Context Protocol
+//!
+//! This module provides transport implementations that use standard input and output
+//! streams for communication between MCP clients and servers. It includes two main
+//! transport types:
+//!
+//! - `ServerStdioTransport`: A simple transport that uses the process's stdin/stdout
+//! - `ClientStdioTransport`: A transport that spawns a child process and communicates with it
+//!
+//! The stdio transport is particularly useful for:
+//! - Command-line tools and applications
+//! - Local process communication
+//! - Testing and development
+//! - Integration with shell scripts and other command-line utilities
+//!
+//! # Examples
+//!
+//! ## Server-side usage
+//!
+//! ```
+//! use mcp_daemon::transport::{ServerStdioTransport, Transport};
+//!
+//! async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create a server transport
+//!     let transport = ServerStdioTransport::default();
+//!     
+//!     // Open the transport
+//!     transport.open().await?;
+//!     
+//!     // Receive a message
+//!     if let Some(message) = transport.receive().await? {
+//!         // Process the message
+//!         println!("Received: {:?}", message);
+//!         
+//!         // Send a response
+//!         transport.send(&message).await?;
+//!     }
+//!     
+//!     // Close the transport
+//!     transport.close().await?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Client-side usage
+//!
+//! ```
+//! use mcp_daemon::transport::{ClientStdioTransport, Transport};
+//!
+//! async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create a client transport that spawns a server process
+//!     let transport = ClientStdioTransport::new("mcp-server", &["--option", "value"])?;
+//!     
+//!     // Open the transport (spawns the process)
+//!     transport.open().await?;
+//!     
+//!     // Send a message
+//!     let message = serde_json::json!({
+//!         "jsonrpc": "2.0",
+//!         "method": "example",
+//!         "params": {"hello": "world"},
+//!         "id": 1
+//!     });
+//!     transport.send(&message).await?;
+//!     
+//!     // Receive a response
+//!     if let Some(response) = transport.receive().await? {
+//!         println!("Received: {:?}", response);
+//!     }
+//!     
+//!     // Close the transport (terminates the process)
+//!     transport.close().await?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+
 use super::{Message, Transport};
 use super::Result;
 use super::error::{TransportError, TransportErrorCode};
@@ -10,12 +88,58 @@ use tokio::process::Child;
 use tokio::sync::Mutex;
 use tracing::debug;
 
-/// Stdio transport for server with json serialization
-/// TODO: support for other binary serialzation formats
+/// Server-side stdio transport implementation
+///
+/// This transport uses the process's standard input and output streams for
+/// communication. It's designed to be used in server applications that are
+/// launched by a client and communicate through stdin/stdout.
+///
+/// The transport uses JSON serialization for messages, with each message
+/// being a single line of JSON text followed by a newline character.
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::transport::{ServerStdioTransport, Transport};
+///
+/// async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create a server transport
+///     let transport = ServerStdioTransport::default();
+///     
+///     // Open the transport
+///     transport.open().await?;
+///     
+///     // Main server loop
+///     while let Some(message) = transport.receive().await? {
+///         // Process the message
+///         println!("Received: {:?}", message);
+///         
+///         // Send a response
+///         transport.send(&message).await?;
+///     }
+///     
+///     // Close the transport
+///     transport.close().await?;
+///     
+///     Ok(())
+/// }
+/// ```
 #[derive(Default, Clone)]
 pub struct ServerStdioTransport;
+
 #[async_trait]
 impl Transport for ServerStdioTransport {
+    /// Receives a message from the standard input
+    ///
+    /// This method reads a line from stdin, parses it as a JSON message,
+    /// and returns the result. If the input stream is closed (EOF), it
+    /// returns `Ok(None)`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(message))` - A message was successfully received
+    /// * `Ok(None)` - The input stream was closed (EOF)
+    /// * `Err(error)` - An error occurred while reading or parsing the message
     async fn receive(&self) -> Result<Option<Message>> {
         let stdin = io::stdin();
         let mut reader = stdin.lock();
@@ -30,6 +154,19 @@ impl Transport for ServerStdioTransport {
         Ok(Some(message))
     }
 
+    /// Sends a message to the standard output
+    ///
+    /// This method serializes the message to JSON, writes it to stdout
+    /// followed by a newline character, and flushes the output.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The message was successfully sent
+    /// * `Err(error)` - An error occurred while serializing or writing the message
     async fn send(&self, message: &Message) -> Result<()> {
         let stdout = io::stdout();
         let mut writer = stdout.lock();
@@ -41,16 +178,72 @@ impl Transport for ServerStdioTransport {
         Ok(())
     }
 
+    /// Opens the transport
+    ///
+    /// For the server transport, this is a no-op since the stdin/stdout
+    /// streams are already available.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The transport was successfully opened
     async fn open(&self) -> Result<()> {
         Ok(())
     }
 
+    /// Closes the transport
+    ///
+    /// For the server transport, this is a no-op since the stdin/stdout
+    /// streams are managed by the process.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The transport was successfully closed
     async fn close(&self) -> Result<()> {
         Ok(())
     }
 }
 
-/// ClientStdioTransport launches a child process and communicates with it via stdio
+/// Client-side stdio transport implementation
+///
+/// This transport spawns a child process and communicates with it through
+/// its standard input and output streams. It's designed to be used in client
+/// applications that need to launch and communicate with a server process.
+///
+/// The transport uses JSON serialization for messages, with each message
+/// being a single line of JSON text followed by a newline character.
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::transport::{ClientStdioTransport, Transport};
+///
+/// async fn run_client() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create a client transport that spawns a server process
+///     let transport = ClientStdioTransport::new("mcp-server", &["--option", "value"])?;
+///     
+///     // Open the transport (spawns the process)
+///     transport.open().await?;
+///     
+///     // Send a message
+///     let message = serde_json::json!({
+///         "jsonrpc": "2.0",
+///         "method": "example",
+///         "params": {"hello": "world"},
+///         "id": 1
+///     });
+///     transport.send(&message).await?;
+///     
+///     // Receive a response
+///     if let Some(response) = transport.receive().await? {
+///         println!("Received: {:?}", response);
+///     }
+///     
+///     // Close the transport (terminates the process)
+///     transport.close().await?;
+///     
+///     Ok(())
+/// }
+/// ```
 #[derive(Clone)]
 pub struct ClientStdioTransport {
     stdin: Arc<Mutex<Option<BufWriter<tokio::process::ChildStdin>>>>,
@@ -62,6 +255,29 @@ pub struct ClientStdioTransport {
 
 impl ClientStdioTransport {
     /// Creates a new stdio transport by spawning a program with the given arguments
+    ///
+    /// This constructor creates a new transport that will spawn the specified
+    /// program with the given arguments when `open()` is called. The transport
+    /// will communicate with the program through its stdin/stdout streams.
+    ///
+    /// # Arguments
+    ///
+    /// * `program` - The program to spawn
+    /// * `args` - The arguments to pass to the program
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(transport)` - The transport was successfully created
+    /// * `Err(error)` - An error occurred while creating the transport
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::ClientStdioTransport;
+    ///
+    /// // Create a transport that will spawn the "mcp-server" program
+    /// let transport = ClientStdioTransport::new("mcp-server", &["--option", "value"]).unwrap();
+    /// ```
     pub fn new(program: &str, args: &[&str]) -> Result<Self> {
         Ok(ClientStdioTransport {
             stdin: Arc::new(Mutex::new(None)),
@@ -72,8 +288,20 @@ impl ClientStdioTransport {
         })
     }
 }
+
 #[async_trait]
 impl Transport for ClientStdioTransport {
+    /// Receives a message from the child process
+    ///
+    /// This method reads a line from the child process's stdout, parses it
+    /// as a JSON message, and returns the result. If the output stream is
+    /// closed (EOF), it returns `Ok(None)`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(message))` - A message was successfully received
+    /// * `Ok(None)` - The output stream was closed (EOF)
+    /// * `Err(error)` - An error occurred while reading or parsing the message
     async fn receive(&self) -> Result<Option<Message>> {
         debug!("ClientStdioTransport: Starting to receive message");
         let mut stdout = self.stdout.lock().await;
@@ -96,6 +324,19 @@ impl Transport for ClientStdioTransport {
         Ok(Some(message))
     }
 
+    /// Sends a message to the child process
+    ///
+    /// This method serializes the message to JSON, writes it to the child
+    /// process's stdin followed by a newline character, and flushes the output.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The message was successfully sent
+    /// * `Err(error)` - An error occurred while serializing or writing the message
     async fn send(&self, message: &Message) -> Result<()> {
         debug!("ClientStdioTransport: Starting to send message");
         let mut stdin = self.stdin.lock().await;
@@ -112,6 +353,15 @@ impl Transport for ClientStdioTransport {
         Ok(())
     }
 
+    /// Opens the transport
+    ///
+    /// This method spawns the child process and sets up the stdin/stdout
+    /// streams for communication.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The transport was successfully opened
+    /// * `Err(error)` - An error occurred while spawning the process or setting up the streams
     async fn open(&self) -> Result<()> {
         debug!("ClientStdioTransport: Opening transport");
         let mut child = tokio::process::Command::new(&self.program)
@@ -137,6 +387,18 @@ impl Transport for ClientStdioTransport {
         Ok(())
     }
 
+    /// Closes the transport
+    ///
+    /// This method performs a graceful shutdown of the child process:
+    /// 1. Flushes and closes the stdin stream
+    /// 2. Waits for the process to exit gracefully (with a timeout)
+    /// 3. If the process doesn't exit, sends SIGTERM
+    /// 4. If the process still doesn't exit, forces a kill
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - The transport was successfully closed
+    /// * `Err(error)` - An error occurred while closing the transport
     async fn close(&self) -> Result<()> {
         const GRACEFUL_TIMEOUT_MS: u64 = 1000;
         const SIGTERM_TIMEOUT_MS: u64 = 500;

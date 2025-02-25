@@ -1,3 +1,86 @@
+//! # MCP Protocol Implementation
+//!
+//! This module provides the core protocol implementation for the Model Context Protocol (MCP).
+//! It handles the bidirectional communication between clients and servers, managing requests,
+//! responses, and notifications according to the JSON-RPC 2.0 specification.
+//!
+//! ## Overview
+//!
+//! The protocol layer sits between the transport layer and the application logic, providing:
+//!
+//! - Message routing and dispatching
+//! - Request/response correlation
+//! - Typed request and notification handlers
+//! - Timeout management
+//! - Error handling
+//!
+//! ## Key Components
+//!
+//! * **Protocol**: The main protocol implementation that manages communication
+//! * **ProtocolBuilder**: A builder for creating and configuring Protocol instances
+//! * **RequestHandler**: Trait for handling incoming requests
+//! * **NotificationHandler**: Trait for handling incoming notifications
+//!
+//! ## Examples
+//!
+//! ### Creating a Protocol Instance
+//!
+//! ```rust,no_run
+//! use mcp_daemon::protocol::{Protocol, ProtocolBuilder};
+//! use mcp_daemon::transport::StdioServerTransport;
+//! use serde_json::json;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a transport
+//! let transport = StdioServerTransport::new();
+//!
+//! // Create a protocol builder
+//! let builder = ProtocolBuilder::new(transport)
+//!     .request_handler("ping", |_: serde_json::Value| {
+//!         Box::pin(async move {
+//!             Ok(json!({ "result": "pong" }))
+//!         })
+//!     })
+//!     .notification_handler("log", |params: serde_json::Value| {
+//!         Box::pin(async move {
+//!             println!("Log: {:?}", params);
+//!             Ok(())
+//!         })
+//!     });
+//!
+//! // Build the protocol
+//! let protocol = builder.build();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Sending Requests and Notifications
+//!
+//! ```rust,no_run
+//! use mcp_daemon::protocol::{Protocol, RequestOptions};
+//! use mcp_daemon::transport::ClientStdioTransport;
+//! use serde_json::json;
+//! use std::time::Duration;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # let transport = ClientStdioTransport::new("example", &[])?;
+//! # let protocol = Protocol::builder(transport).build();
+//! // Send a request with a timeout
+//! let response = protocol.request(
+//!     "get_data",
+//!     Some(json!({ "id": 123 })),
+//!     RequestOptions::default().timeout(Duration::from_secs(30))
+//! ).await?;
+//!
+//! // Send a notification
+//! protocol.notify(
+//!     "status_update",
+//!     Some(json!({ "status": "ready" }))
+//! ).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 use super::transport::{
     JsonRpcError, JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse, Message,
     Transport, TransportError, TransportErrorCode,
@@ -17,37 +100,119 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 use tracing::debug;
 
+/// Result type for protocol operations
 type Result<T> = std::result::Result<T, TransportError>;
 
 /// The main protocol implementation for handling MCP messages
 /// 
 /// Manages bidirectional communication between client and server,
 /// handling requests, notifications, and their respective responses.
+///
+/// The Protocol struct is responsible for:
+/// - Sending requests and notifications to the remote endpoint
+/// - Receiving and routing incoming messages
+/// - Managing request/response correlation
+/// - Handling timeouts
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use mcp_daemon::protocol::Protocol;
+/// use mcp_daemon::transport::ClientStdioTransport;
+/// use serde_json::json;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let transport = ClientStdioTransport::new("example", &[])?;
+/// let protocol = Protocol::builder(transport).build();
+///
+/// // Send a request
+/// let response = protocol.request(
+///     "get_data",
+///     Some(json!({ "id": 123 })),
+///     Default::default()
+/// ).await?;
+///
+/// // Send a notification
+/// protocol.notify(
+///     "status_update",
+///     Some(json!({ "status": "ready" }))
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone)]
 pub struct Protocol<T: Transport> {
+    /// The transport layer used for communication
     transport: Arc<T>,
 
+    /// Counter for generating unique request IDs
     request_id: Arc<AtomicU64>,
+    /// Map of pending requests awaiting responses
     pending_requests: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcResponse>>>>,
+    /// Map of request handlers registered for different methods
     request_handlers: Arc<Mutex<HashMap<String, Box<dyn RequestHandler>>>>,
+    /// Map of notification handlers registered for different methods
     notification_handlers: Arc<Mutex<HashMap<String, Box<dyn NotificationHandler>>>>,
 }
 
 impl<T: Transport> Protocol<T> {
     /// Creates a new protocol builder with the given transport
-/// 
-/// # Arguments
-/// * `transport` - The transport layer to use for communication
-pub fn builder(transport: T) -> ProtocolBuilder<T> {
+    /// 
+    /// # Arguments
+    /// * `transport` - The transport layer to use for communication
+    ///
+    /// # Returns
+    ///
+    /// A new `ProtocolBuilder` instance that can be used to configure and build a `Protocol`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::Protocol;
+    /// # use mcp_daemon::transport::ClientStdioTransport;
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let transport = ClientStdioTransport::new("example", &[])?;
+    /// let builder = Protocol::builder(transport);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn builder(transport: T) -> ProtocolBuilder<T> {
         ProtocolBuilder::new(transport)
     }
 
     /// Sends a notification to the remote endpoint
-/// 
-/// # Arguments
-/// * `method` - The notification method name
-/// * `params` - Optional parameters for the notification
-pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> Result<()> {
+    /// 
+    /// Notifications are one-way messages that don't expect a response.
+    ///
+    /// # Arguments
+    /// * `method` - The notification method name
+    /// * `params` - Optional parameters for the notification
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing `()` if the notification was sent successfully, or a `TransportError` if it failed.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::Protocol;
+    /// # use mcp_daemon::transport::ClientStdioTransport;
+    /// # use serde_json::json;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let transport = ClientStdioTransport::new("example", &[])?;
+    /// # let protocol = Protocol::builder(transport).build();
+    /// // Send a simple notification
+    /// protocol.notify("initialized", None).await?;
+    ///
+    /// // Send a notification with parameters
+    /// protocol.notify(
+    ///     "status_update",
+    ///     Some(json!({ "status": "ready" }))
+    /// ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> Result<()> {
         let notification = JsonRpcNotification {
             method: method.to_string(),
             params,
@@ -60,13 +225,51 @@ pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> R
 
     /// Send a JSON-RPC request to the server
     ///
+    /// This method sends a request to the remote endpoint and waits for a response.
+    /// It automatically generates a unique request ID and handles timeout management.
+    ///
     /// # Arguments
     /// * `method` - The name of the method to call
     /// * `params` - Optional parameters for the method
     /// * `options` - Request options like timeout
     ///
     /// # Returns
-    /// The JSON-RPC response from the server
+    ///
+    /// A `Result` containing the JSON-RPC response if successful, or a `TransportError` if it failed.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// * The transport fails to send the request
+    /// * The request times out
+    /// * The request is cancelled
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::{Protocol, RequestOptions};
+    /// # use mcp_daemon::transport::ClientStdioTransport;
+    /// # use serde_json::json;
+    /// # use std::time::Duration;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let transport = ClientStdioTransport::new("example", &[])?;
+    /// # let protocol = Protocol::builder(transport).build();
+    /// // Send a request with default options
+    /// let response = protocol.request(
+    ///     "get_data",
+    ///     Some(json!({ "id": 123 })),
+    ///     Default::default()
+    /// ).await?;
+    ///
+    /// // Send a request with a custom timeout
+    /// let response = protocol.request(
+    ///     "get_data",
+    ///     Some(json!({ "id": 123 })),
+    ///     RequestOptions::default().timeout(Duration::from_secs(30))
+    /// ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn request(
         &self,
         method: &str,
@@ -115,7 +318,31 @@ pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> R
     /// Listen for and handle incoming JSON-RPC messages
     ///
     /// This method runs indefinitely, processing incoming messages and routing them
-    /// to the appropriate handlers.
+    /// to the appropriate handlers. It will exit when the transport is closed.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing `()` if the transport is closed normally, or a `TransportError` if an error occurs.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// * The transport encounters an error while receiving messages
+    /// * A handler encounters an error while processing a message
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::Protocol;
+    /// # use mcp_daemon::transport::ClientStdioTransport;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let transport = ClientStdioTransport::new("example", &[])?;
+    /// # let protocol = Protocol::builder(transport).build();
+    /// // Start listening for messages
+    /// protocol.listen().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn listen(&self) -> Result<()> {
         debug!("Listening for requests");
         loop {
@@ -146,6 +373,17 @@ pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> R
         Ok(())
     }
 
+    /// Handle an incoming request
+    ///
+    /// This method routes the request to the appropriate handler and sends the response.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The JSON-RPC request to handle
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing `()` if the request was handled successfully, or a `TransportError` if it failed.
     async fn handle_request(&self, request: JsonRpcRequest) -> Result<()> {
         let handlers = self.request_handlers.lock().await;
         if let Some(handler) = handlers.get(&request.method) {
@@ -187,9 +425,29 @@ pub async fn notify(&self, method: &str, params: Option<serde_json::Value>) -> R
 }
 
 /// The default request timeout, in milliseconds
+///
+/// This constant defines the default timeout for requests, which is 60 seconds (60,000 milliseconds).
 pub const DEFAULT_REQUEST_TIMEOUT_MSEC: u64 = 60000;
+
 /// Options for configuring request behavior
+///
+/// This struct provides options for configuring how requests are sent and processed.
+/// Currently, it only supports setting a timeout, but could be extended with other options in the future.
+///
+/// # Examples
+///
+/// ```rust
+/// use mcp_daemon::protocol::RequestOptions;
+/// use std::time::Duration;
+///
+/// // Create options with default timeout (60 seconds)
+/// let options = RequestOptions::default();
+///
+/// // Create options with a custom timeout
+/// let options = RequestOptions::default().timeout(Duration::from_secs(30));
+/// ```
 pub struct RequestOptions {
+    /// The timeout duration for the request
     timeout: Duration,
 }
 
@@ -198,6 +456,10 @@ impl RequestOptions {
     ///
     /// # Arguments
     /// * `timeout` - The duration after which requests should time out
+    ///
+    /// # Returns
+    ///
+    /// A new `RequestOptions` instance with the specified timeout.
     pub fn timeout(self, timeout: Duration) -> Self {
         Self { timeout }
     }
@@ -212,24 +474,100 @@ impl Default for RequestOptions {
 }
 
 /// Builder for creating and configuring a Protocol instance
+///
+/// This builder provides a fluent interface for configuring a Protocol instance,
+/// allowing you to register request and notification handlers before building the protocol.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use mcp_daemon::protocol::ProtocolBuilder;
+/// use mcp_daemon::transport::StdioServerTransport;
+/// use serde_json::json;
+///
+/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let transport = StdioServerTransport::new();
+///
+/// // Create a protocol builder with request and notification handlers
+/// let builder = ProtocolBuilder::new(transport)
+///     .request_handler("ping", |_: serde_json::Value| {
+///         Box::pin(async move {
+///             Ok(json!({ "result": "pong" }))
+///         })
+///     })
+///     .notification_handler("log", |params: serde_json::Value| {
+///         Box::pin(async move {
+///             println!("Log: {:?}", params);
+///             Ok(())
+///         })
+///     });
+///
+/// // Build the protocol
+/// let protocol = builder.build();
+/// # Ok(())
+/// # }
+/// ```
 pub struct ProtocolBuilder<T: Transport> {
+    /// The transport layer to use for communication
     _transport: T,
+    /// Map of request handlers registered for different methods
     request_handlers: HashMap<String, Box<dyn RequestHandler>>,
+    /// Map of notification handlers registered for different methods
     notification_handlers: HashMap<String, Box<dyn NotificationHandler>>,
 }
+
 impl<T: Transport> ProtocolBuilder<T> {
     /// Creates a new ProtocolBuilder instance
-/// 
-/// # Arguments
-/// * `transport` - The transport layer to use for communication
-pub fn new(transport: T) -> Self {
+    /// 
+    /// # Arguments
+    /// * `transport` - The transport layer to use for communication
+    ///
+    /// # Returns
+    ///
+    /// A new `ProtocolBuilder` instance.
+    pub fn new(transport: T) -> Self {
         Self {
             _transport: transport,
             request_handlers: HashMap::new(),
             notification_handlers: HashMap::new(),
         }
     }
+
     /// Register a typed request handler
+    ///
+    /// This method registers a handler function for a specific request method.
+    /// The handler function will be called when a request with the specified method is received.
+    ///
+    /// # Arguments
+    ///
+    /// * `method` - The method name to handle
+    /// * `handler` - The function to handle requests of this type
+    ///
+    /// # Type Parameters
+    ///
+    /// * `Req` - The type of request payload
+    /// * `Resp` - The type of response payload
+    ///
+    /// # Returns
+    ///
+    /// The builder instance for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::ProtocolBuilder;
+    /// # use mcp_daemon::transport::StdioServerTransport;
+    /// # use serde_json::json;
+    /// # fn example() {
+    /// # let transport = StdioServerTransport::new();
+    /// let builder = ProtocolBuilder::new(transport)
+    ///     .request_handler("ping", |_: serde_json::Value| {
+    ///         Box::pin(async move {
+    ///             Ok(json!({ "result": "pong" }))
+    ///         })
+    ///     });
+    /// # }
+    /// ```
     pub fn request_handler<Req, Resp>(
         mut self,
         method: &str,
@@ -262,12 +600,36 @@ pub fn new(transport: T) -> Self {
 
     /// Register a handler for a notification method
     ///
+    /// This method registers a handler function for a specific notification method.
+    /// The handler function will be called when a notification with the specified method is received.
+    ///
     /// # Arguments
     /// * `method` - The notification method to handle
     /// * `handler` - The function to handle notifications of this type
     ///
     /// # Type Parameters
     /// * `N` - The type of notification payload
+    ///
+    /// # Returns
+    ///
+    /// The builder instance for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::ProtocolBuilder;
+    /// # use mcp_daemon::transport::StdioServerTransport;
+    /// # fn example() {
+    /// # let transport = StdioServerTransport::new();
+    /// let builder = ProtocolBuilder::new(transport)
+    ///     .notification_handler("log", |params: serde_json::Value| {
+    ///         Box::pin(async move {
+    ///             println!("Log: {:?}", params);
+    ///             Ok(())
+    ///         })
+    ///     });
+    /// # }
+    /// ```
     pub fn notification_handler<N>(
         mut self,
         method: &str,
@@ -290,6 +652,18 @@ pub fn new(transport: T) -> Self {
     ///
     /// # Returns
     /// A new Protocol instance ready to handle requests and notifications
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use mcp_daemon::protocol::ProtocolBuilder;
+    /// # use mcp_daemon::transport::StdioServerTransport;
+    /// # fn example() {
+    /// # let transport = StdioServerTransport::new();
+    /// # let builder = ProtocolBuilder::new(transport);
+    /// let protocol = builder.build();
+    /// # }
+    /// ```
     pub fn build(self) -> Protocol<T> {
         Protocol {
             transport: Arc::new(self._transport),
@@ -302,18 +676,44 @@ pub fn new(transport: T) -> Self {
 }
 
 // Update the handler traits to be async
+/// Trait for handling incoming requests
+///
+/// This trait defines the interface for request handlers.
 #[async_trait]
 trait RequestHandler: Send + Sync {
+    /// Handle an incoming request
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The JSON-RPC request to handle
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the JSON-RPC response if successful, or a `TransportError` if it failed.
     async fn handle(&self, request: JsonRpcRequest) -> Result<JsonRpcResponse>;
 }
 
+/// Trait for handling incoming notifications
+///
+/// This trait defines the interface for notification handlers.
 #[async_trait]
 trait NotificationHandler: Send + Sync {
+    /// Handle an incoming notification
+    ///
+    /// # Arguments
+    ///
+    /// * `notification` - The JSON-RPC notification to handle
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing `()` if the notification was handled successfully, or a `TransportError` if it failed.
     async fn handle(&self, notification: JsonRpcNotification) -> Result<()>;
 }
 
 // Type aliases for complex future types
+/// Type alias for a future that returns a Result<T>
 type RequestFuture<T> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>;
+/// Type alias for a future that returns a Result<()>
 type NotificationFuture = RequestFuture<()>;
 
 /// Type alias for async request handler function type
@@ -323,12 +723,15 @@ type AsyncRequestHandler<Req, Resp> = Box<dyn Fn(Req) -> RequestFuture<Resp> + S
 type AsyncNotificationHandler<N> = Box<dyn Fn(N) -> NotificationFuture + Send + Sync>;
 
 // Update the TypedRequestHandler to use async handlers
+/// A typed request handler that deserializes request parameters and serializes responses
 struct TypedRequestHandler<Req, Resp>
 where
     Req: DeserializeOwned + Send + Sync + 'static,
     Resp: Serialize + Send + Sync + 'static,
 {
+    /// The handler function
     handler: AsyncRequestHandler<Req, Resp>,
+    /// Phantom data for type parameters
     _phantom: std::marker::PhantomData<(Req, Resp)>,
 }
 
@@ -357,11 +760,14 @@ where
     }
 }
 
+/// A typed notification handler that deserializes notification parameters
 struct TypedNotificationHandler<N>
 where
     N: DeserializeOwned + Send + Sync + 'static,
 {
+    /// The handler function
     handler: AsyncNotificationHandler<N>,
+    /// Phantom data for type parameter
     _phantom: std::marker::PhantomData<N>,
 }
 

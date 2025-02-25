@@ -3,6 +3,19 @@ use thiserror::Error;
 use std::error::Error as StdError;
 
 /// Transport-specific error codes
+///
+/// These error codes provide detailed information about the specific type of error
+/// that occurred in the transport layer. They are grouped by category for better organization.
+///
+/// # Error Code Ranges
+///
+/// - `-1000` to `-1099`: Connection errors
+/// - `-1100` to `-1199`: Message errors
+/// - `-1200` to `-1299`: Protocol errors
+/// - `-1300` to `-1399`: Transport operation errors
+/// - `-1400` to `-1499`: WebSocket specific errors
+/// - `-1500` to `-1599`: SSE specific errors
+/// - `-1900` to `-1999`: Generic errors
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransportErrorCode {
     // Connection errors
@@ -28,6 +41,8 @@ pub enum TransportErrorCode {
     ProtocolError = -1200,
     /// Transport handshake failed
     HandshakeFailed = -1201,
+    /// Authentication failed
+    AuthenticationFailed = -1202,
 
     // Transport operation errors
     /// Error sending message
@@ -38,8 +53,6 @@ pub enum TransportErrorCode {
     CloseError = -1302,
     /// Error receiving message
     ReceiveError = -1303,
-    /// Authentication failed
-    AuthenticationFailed = -1202,
 
     // Session errors
     /// Session has expired
@@ -121,6 +134,46 @@ impl fmt::Display for TransportErrorCode {
 }
 
 /// Transport-specific error type
+///
+/// This error type provides detailed information about errors that occur in the transport layer.
+/// It includes specialized variants for different types of errors, such as JSON parsing errors,
+/// I/O errors, WebSocket errors, and more.
+///
+/// # Examples
+///
+/// ```
+/// use mcp_daemon::transport::{TransportError, TransportErrorCode};
+///
+/// // Create a simple transport error
+/// let error = TransportError::new(
+///     TransportErrorCode::ConnectionFailed,
+///     "Failed to connect to server"
+/// );
+///
+/// // Create an error with a source
+/// let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "Connection refused");
+/// let error = TransportError::with_source(
+///     TransportErrorCode::ConnectionFailed,
+///     "Failed to connect to server",
+///     Box::new(io_error) as Box<dyn std::error::Error + Send + Sync>
+/// );
+///
+/// // Handle different error types
+/// match error {
+///     TransportError::Transport { code, message, .. } => {
+///         println!("Transport error {}: {}", code, message);
+///     }
+///     TransportError::Io(err) => {
+///         println!("I/O error: {}", err);
+///     }
+///     TransportError::Json(err) => {
+///         println!("JSON error: {}", err);
+///     }
+///     _ => {
+///         println!("Other error: {}", error);
+///     }
+/// }
+/// ```
 #[derive(Error, Debug)]
 pub enum TransportError {
     #[error("{code}: {message}")]
@@ -202,6 +255,26 @@ impl From<tokio::task::JoinError> for TransportError {
 
 impl TransportError {
     /// Create a new transport error
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - The error code
+    /// * `message` - The error message
+    ///
+    /// # Returns
+    ///
+    /// A new `TransportError` instance
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::{TransportError, TransportErrorCode};
+    ///
+    /// let error = TransportError::new(
+    ///     TransportErrorCode::ConnectionFailed,
+    ///     "Failed to connect to server"
+    /// );
+    /// ```
     pub fn new(code: TransportErrorCode, message: impl Into<String>) -> Self {
         Self::Transport {
             code,
@@ -211,6 +284,30 @@ impl TransportError {
     }
 
     /// Create a new transport error with source
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - The error code
+    /// * `message` - The error message
+    /// * `source` - The error source
+    ///
+    /// # Returns
+    ///
+    /// A new `TransportError` instance with the specified source
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::{TransportError, TransportErrorCode};
+    /// use std::error::Error;
+    ///
+    /// let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "Connection refused");
+    /// let error = TransportError::with_source(
+    ///     TransportErrorCode::ConnectionFailed,
+    ///     "Failed to connect to server",
+    ///     Box::new(io_error) as Box<dyn Error + Send + Sync>
+    /// );
+    /// ```
     pub fn with_source(
         code: TransportErrorCode,
         message: impl Into<String>,
@@ -224,6 +321,23 @@ impl TransportError {
     }
 
     /// Get the error code if this is a transport error
+    ///
+    /// # Returns
+    ///
+    /// The error code if this is a transport error, or `None` if this is not a transport error
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp_daemon::transport::{TransportError, TransportErrorCode};
+    ///
+    /// let error = TransportError::new(TransportErrorCode::ConnectionFailed, "Failed to connect");
+    /// assert_eq!(error.code(), Some(TransportErrorCode::ConnectionFailed));
+    ///
+    /// let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+    /// let error = TransportError::Io(io_error);
+    /// assert_eq!(error.code(), None);
+    /// ```
     pub fn code(&self) -> Option<TransportErrorCode> {
         match self {
             Self::Transport { code, .. } => Some(*code),
