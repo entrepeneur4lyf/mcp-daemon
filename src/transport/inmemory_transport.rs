@@ -10,40 +10,39 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use mcp_daemon::transport::{ClientInMemoryTransport, Transport};
+//! ```no_run
+//! use mcp_daemon::transport::{ClientInMemoryTransport, Transport, Message, JsonRpcRequest};
 //! use tokio::spawn;
+//! use serde_json::json;
 //!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create an echo server function
+//!     // Simple echo server that sends back received messages
 //!     async fn echo_server(transport: mcp_daemon::transport::ServerInMemoryTransport) {
 //!         while let Ok(Some(message)) = transport.receive().await {
 //!             let _ = transport.send(&message).await;
 //!         }
 //!     }
 //!
-//!     // Create a client transport with the echo server
+//!     // Create client transport with echo server
 //!     let transport = ClientInMemoryTransport::new(|t| spawn(echo_server(t)));
-//!
-//!     // Open the transport
 //!     transport.open().await?;
 //!
-//!     // Send a message
-//!     let message = serde_json::json!({
-//!         "jsonrpc": "2.0",
-//!         "method": "test",
-//!         "params": {"hello": "world"},
-//!         "id": 1
+//!     // Send a test message
+//!     let message = Message::Request(JsonRpcRequest {
+//!         id: 1,
+//!         method: "test".to_string(),
+//!         params: Some(json!({
+//!             "hello": "world"
+//!         })),
+//!         jsonrpc: Default::default(),
 //!     });
 //!     transport.send(&message).await?;
 //!
-//!     // Receive the echoed message
+//!     // Verify echo response
 //!     let response = transport.receive().await?;
 //!     assert_eq!(Some(message), response);
 //!
-//!     // Close the transport
 //!     transport.close().await?;
-//!
 //!     Ok(())
 //! }
 //! ```
@@ -66,24 +65,18 @@ use tracing::debug;
 ///
 /// # Examples
 ///
-/// ```
-/// use mcp_daemon::transport::{ServerInMemoryTransport, Transport};
+/// ```no_run
+/// use mcp_daemon::transport::{ServerInMemoryTransport, Transport, Message};
 ///
 /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create a server transport
+///     // Create server transport with default buffer size (100)
 ///     let transport = ServerInMemoryTransport::default();
 ///
-///     // Open the transport
-///     transport.open().await?;
-///
-///     // Process messages
+///     // Process messages until channel closes
 ///     while let Ok(Some(message)) = transport.receive().await {
-///         // Echo the message back
+///         // Echo back all messages
 ///         transport.send(&message).await?;
 ///     }
-///
-///     // Close the transport
-///     transport.close().await?;
 ///
 ///     Ok(())
 /// }
@@ -190,39 +183,40 @@ impl Transport for ServerInMemoryTransport {
 ///
 /// # Examples
 ///
-/// ```
-/// use mcp_daemon::transport::{ClientInMemoryTransport, Transport};
+/// ```no_run
+/// use mcp_daemon::transport::{ClientInMemoryTransport, Transport, Message, JsonRpcRequest};
 /// use tokio::spawn;
+/// use serde_json::json;
 ///
 /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create an echo server function
-///     async fn echo_server(transport: mcp_daemon::transport::ServerInMemoryTransport) {
-///         while let Ok(Some(message)) = transport.receive().await {
-///             let _ = transport.send(&message).await;
-///         }
-///     }
-///
-///     // Create a client transport with the echo server
-///     let transport = ClientInMemoryTransport::new(|t| spawn(echo_server(t)));
-///
-///     // Open the transport
+///     // Create client transport with echo server
+///     let transport = ClientInMemoryTransport::new(|t| {
+///         spawn(async move {
+///             while let Ok(Some(msg)) = t.receive().await {
+///                 let _ = t.send(&msg).await;
+///             }
+///         })
+///     });
+///     
 ///     transport.open().await?;
 ///
-///     // Send a message
-///     let message = serde_json::json!({
-///         "jsonrpc": "2.0",
-///         "method": "test",
-///         "params": {"hello": "world"},
-///         "id": 1
+///     // Send test message
+///     let message = Message::Request(JsonRpcRequest {
+///         id: 1,
+///         method: "test".to_string(),
+///         params: Some(json!({
+///             "hello": "world"
+///         })),
+///         jsonrpc: Default::default(),
 ///     });
 ///     transport.send(&message).await?;
 ///
-///     // Receive the echoed message
-///     let response = transport.receive().await?;
+///     // Get echo response
+///     if let Some(response) = transport.receive().await? {
+///         println!("Got response: {:?}", response);
+///     }
 ///
-///     // Close the transport
 ///     transport.close().await?;
-///
 ///     Ok(())
 /// }
 /// ```
@@ -247,20 +241,20 @@ impl ClientInMemoryTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::ClientInMemoryTransport;
-    /// use tokio::spawn;
-    ///
-    /// // Create an echo server function
-    /// async fn echo_server(transport: mcp_daemon::transport::ServerInMemoryTransport) {
-    ///     while let Ok(Some(message)) = transport.receive().await {
-    ///         let _ = transport.send(&message).await;
-    ///     }
-    /// }
-    ///
-    /// // Create a client transport with the echo server
-    /// let transport = ClientInMemoryTransport::new(|t| spawn(echo_server(t)));
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::{ClientInMemoryTransport, Transport};
+/// use tokio::spawn;
+///
+/// // Simple echo server implementation
+/// async fn echo_server(transport: mcp_daemon::transport::ServerInMemoryTransport) {
+///     while let Ok(Some(msg)) = transport.receive().await {
+///         let _ = transport.send(&msg).await;
+///     }
+/// }
+///
+/// // Create client transport with echo server
+/// let transport = ClientInMemoryTransport::new(|t| spawn(echo_server(t)));
+/// ```
     pub fn new<F>(server_factory: F) -> Self
     where
         F: Fn(ServerInMemoryTransport) -> JoinHandle<()> + Send + Sync + 'static,

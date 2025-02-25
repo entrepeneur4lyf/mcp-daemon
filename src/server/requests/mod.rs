@@ -84,7 +84,7 @@ use crate::types::{Implementation, ServerCapabilities};
 ///
 /// ```rust
 /// use std::collections::HashMap;
-/// use mcp_daemon::server::requests::{Request, InitializeParams, CancelParams};
+/// use mcp_daemon::server::requests::{Request, InitializeParams, CancelParams, SetLevelParams};
 /// use mcp_daemon::server::notifications::LoggingLevel;
 /// use mcp_daemon::types::Implementation;
 ///
@@ -271,7 +271,7 @@ type Result<T> = std::result::Result<T, ServerError>;
 ///
 /// ```rust
 /// use mcp_daemon::server::requests::{Request, RequestHandler};
-/// use mcp_daemon::server::error::ServerError;
+/// use mcp_daemon::server::error::{ServerError, ErrorCode};
 ///
 /// struct MyRequestHandler;
 ///
@@ -282,7 +282,7 @@ type Result<T> = std::result::Result<T, ServerError>;
 ///                 // Handle ping request
 ///                 Ok(serde_json::json!({"status": "ok"}))
 ///             }
-///             _ => Err(ServerError::MethodNotFound),
+///             _ => Err(ServerError::new(ErrorCode::MethodNotFound, "Method not found")),
 ///         }
 ///     }
 /// }

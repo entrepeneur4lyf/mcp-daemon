@@ -86,8 +86,9 @@ type CompletionFn<T> = Arc<dyn Fn(&str) -> CompletionFuture<T> + Send + Sync>;
 ///     type Output = String;
 ///
 ///     fn complete(&self, value: &Self::Input) -> Pin<Box<dyn Future<Output = Vec<Self::Output>> + Send>> {
+///         let value_owned = value.to_string();
 ///         Box::pin(async move {
-///             vec![format!("{}1", value), format!("{}2", value)]
+///             vec![format!("{}1", value_owned), format!("{}2", value_owned)]
 ///         })
 ///     }
 /// }

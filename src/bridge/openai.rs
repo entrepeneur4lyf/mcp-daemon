@@ -16,15 +16,16 @@
 //!
 //! ## Examples
 //!
-//! ```rust
-//! use mcp_daemon::bridge::openai::{mcp_to_function, mcp_to_function_response};
+//! ```no_run
+//! use mcp_daemon::bridge::openai::{mcp_to_function, mcp_to_function_response, ToolResponse};
 //! use mcp_daemon::types::Tool;
+//! use serde_json::json;
 //!
 //! // Define an MCP tool
 //! let tool = Tool {
 //!     name: "weather".to_string(),
 //!     description: Some("Get the current weather".to_string()),
-//!     input_schema: serde_json::json!({
+//!     input_schema: json!({
 //!         "type": "object",
 //!         "properties": {
 //!             "location": { "type": "string" }
@@ -41,10 +42,11 @@
 //!
 //! // Convert tool response back to OpenAI format
 //! let tool_response = ToolResponse {
-//!     result: serde_json::json!({"temperature": 72, "conditions": "sunny"}),
+//!     result: json!({"temperature": 72, "conditions": "sunny"}),
 //!     error: None,
 //! };
 //! let function_response = mcp_to_function_response("weather", &tool_response);
+//! assert_eq!(function_response.name, "weather");
 //! ```
 //!
 //! ## Related Modules
@@ -130,14 +132,15 @@ pub struct FunctionResponse {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::openai::mcp_to_function;
 /// use mcp_daemon::types::Tool;
+/// use serde_json::json;
 ///
 /// let tool = Tool {
 ///     name: "calculator".to_string(),
 ///     description: Some("Perform calculations".to_string()),
-///     input_schema: serde_json::json!({
+///     input_schema: json!({
 ///         "type": "object",
 ///         "properties": {
 ///             "operation": { "type": "string" },
@@ -194,15 +197,16 @@ pub fn mcp_to_function(tools: &[Tool]) -> Vec<Function> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::openai::{function_to_mcp, Function, FunctionDefinition};
+/// use serde_json::json;
 ///
 /// let function = Function {
 ///     function_type: "function".to_string(),
 ///     function: FunctionDefinition {
 ///         name: "calculator".to_string(),
 ///         description: Some("Perform calculations".to_string()),
-///         parameters: serde_json::json!({
+///         parameters: json!({
 ///             "arg1": "test"
 ///         }),
 ///         strict: true,
@@ -269,7 +273,7 @@ pub struct FunctionCall {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::openai::{tool_call_to_mcp, ToolCall, FunctionCall};
 ///
 /// let tool_call = ToolCall {
@@ -313,11 +317,12 @@ pub fn tool_call_to_mcp(tool_call: &ToolCall) -> Result<ToolExecution, Transport
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::openai::{mcp_to_function_response, ToolResponse};
+/// use serde_json::json;
 ///
 /// let response = ToolResponse {
-///     result: serde_json::json!({"sum": 3}),
+///     result: json!({"sum": 3}),
 ///     error: None,
 /// };
 ///

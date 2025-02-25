@@ -21,8 +21,9 @@ type Result<T> = std::result::Result<T, TransportError>;
 ///
 /// ```rust,no_run
 /// use mcp_daemon::client::Client;
-/// use mcp_daemon::transport::ClientStdioTransport;
+/// use mcp_daemon::transport::{ClientStdioTransport, Transport, TransportError};
 /// use mcp_daemon::types::Implementation;
+/// use mcp_daemon::protocol::RequestOptions;
 /// use serde_json::json;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,7 +45,7 @@ type Result<T> = std::result::Result<T, TransportError>;
 /// let response = client.request(
 ///     "tools/list",
 ///     None,
-///     Default::default()
+///     RequestOptions::default()
 /// ).await?;
 /// # Ok(())
 /// # }
@@ -110,23 +111,23 @@ impl<T: Transport> Client<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::client::Client;
-    /// # use mcp_daemon::transport::ClientStdioTransport;
-    /// # use mcp_daemon::types::Implementation;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let transport = ClientStdioTransport::new("mcp-server", &[])?;
-    /// transport.open().await?;
-    /// let client = Client::builder(transport).build();
-    ///
-    /// let client_info = Implementation {
-    ///     name: "example-client".to_string(),
-    ///     version: "0.1.0".to_string(),
-    /// };
-    /// let response = client.initialize(client_info).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::client::Client;
+/// # use mcp_daemon::transport::{ClientStdioTransport, Transport, TransportError};
+/// # use mcp_daemon::types::Implementation;
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let transport = ClientStdioTransport::new("mcp-server", &[])?;
+/// transport.open().await?;
+/// let client = Client::builder(transport).build();
+///
+/// let client_info = Implementation {
+///     name: "example-client".to_string(),
+///     version: "0.1.0".to_string(),
+/// };
+/// let response = client.initialize(client_info).await?;
+/// # Ok(())
+/// # }
+/// ```
     pub async fn initialize(&self, client_info: Implementation) -> Result<InitializeResponse> {
         let request = InitializeRequest {
             protocol_version: LATEST_PROTOCOL_VERSION.to_string(),
@@ -180,36 +181,36 @@ impl<T: Transport> Client<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::client::Client;
-    /// # use mcp_daemon::transport::ClientStdioTransport;
-    /// # use mcp_daemon::protocol::RequestOptions;
-    /// # use serde_json::json;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let transport = ClientStdioTransport::new("mcp-server", &[])?;
-    /// # transport.open().await?;
-    /// # let client = Client::builder(transport).build();
-    /// // List available tools
-    /// let tools_response = client.request(
-    ///     "tools/list",
-    ///     None,
-    ///     RequestOptions::default(),
-    /// ).await?;
-    ///
-    /// // Call a specific tool
-    /// let call_response = client.request(
-    ///     "tools/call",
-    ///     Some(json!({
-    ///         "name": "example-tool",
-    ///         "arguments": {
-    ///             "param1": "value1"
-    ///         }
-    ///     })),
-    ///     RequestOptions::default(),
-    /// ).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::client::Client;
+/// # use mcp_daemon::transport::{ClientStdioTransport, Transport, TransportError};
+/// # use mcp_daemon::protocol::RequestOptions;
+/// # use serde_json::json;
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let transport = ClientStdioTransport::new("mcp-server", &[])?;
+/// # transport.open().await?;
+/// # let client = Client::builder(transport).build();
+/// // List available tools
+/// let tools_response = client.request(
+///     "tools/list",
+///     None,
+///     RequestOptions::default(),
+/// ).await?;
+///
+/// // Call a specific tool
+/// let call_response = client.request(
+///     "tools/call",
+///     Some(json!({
+///         "name": "example-tool",
+///         "arguments": {
+///             "param1": "value1"
+///         }
+///     })),
+///     RequestOptions::default(),
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
     pub async fn request(
         &self,
         method: &str,
@@ -243,26 +244,26 @@ impl<T: Transport> Client<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::client::Client;
-    /// # use mcp_daemon::transport::ClientStdioTransport;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let transport = ClientStdioTransport::new("mcp-server", &[])?;
-    /// # transport.open().await?;
-    /// let client = Client::builder(transport).build();
-    /// let client_clone = client.clone();
-    ///
-    /// // Start listening for messages in a separate task
-    /// tokio::spawn(async move {
-    ///     if let Err(e) = client_clone.start().await {
-    ///         eprintln!("Client error: {}", e);
-    ///     }
-    /// });
-    ///
-    /// // Use the client to make requests...
-    /// # Ok(())
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::client::Client;
+/// # use mcp_daemon::transport::{ClientStdioTransport, Transport, TransportError};
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let transport = ClientStdioTransport::new("mcp-server", &[])?;
+/// # transport.open().await?;
+/// let client = Client::builder(transport).build();
+/// let client_clone = client.clone();
+///
+/// // Start listening for messages in a separate task
+/// tokio::spawn(async move {
+///     if let Err(e) = client_clone.start().await {
+///         eprintln!("Client error: {}", e);
+///     }
+/// });
+///
+/// // Use the client to make requests...
+/// # Ok(())
+/// # }
+/// ```
     pub async fn start(&self) -> Result<()> {
         self.protocol.listen().await
     }

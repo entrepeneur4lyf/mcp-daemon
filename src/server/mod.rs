@@ -38,7 +38,7 @@
 //! ```rust,no_run
 //! use mcp_daemon::server::{Server, McpServer};
 //! use mcp_daemon::types::Implementation;
-//! use mcp_daemon::transport::StdioServerTransport;
+//! use mcp_daemon::transport::ServerStdioTransport;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a server implementation
@@ -51,7 +51,7 @@
 //! let mut server = Server::new(server_info);
 //!
 //! // Create a transport
-//! let transport = StdioServerTransport::new();
+//! let transport = ServerStdioTransport::default();
 //!
 //! // Connect the server to the transport
 //! server.connect(transport).await?;
@@ -76,6 +76,7 @@ pub use prompt::RegisteredPrompt;
 pub mod requests;
 /// Module for managing resources and resource-related functionality
 pub mod resource;
+pub use resource::RegisteredResource;
 /// Module for managing root directories and workspace roots
 pub mod roots;
 /// Module for handling sampling functionality
@@ -192,30 +193,31 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, RequestHandler, NotificationHandler, NotificationSender};
-    /// # use mcp_daemon::types::Implementation;
-    /// # use mcp_daemon::transport::StdioServerTransport;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, RequestHandler, NotificationHandler, NotificationSender, Request, Notification, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use mcp_daemon::transport::{ServerStdioTransport, Transport};
+/// # use async_trait::async_trait;
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
 /// # struct DummyRequestHandler;
-/// # #[async_trait::async_trait]
+/// # #[async_trait]
 /// # impl RequestHandler for DummyRequestHandler {
-/// #     async fn handle(&self, _request: Request) -> Result<serde_json::Value> { Ok(serde_json::Value::Null) }
+/// #     async fn handle(&self, _request: Request) -> std::result::Result<serde_json::Value, ServerError> { Ok(serde_json::Value::Null) }
 /// # }
 /// # struct DummyNotificationHandler;
-/// # #[async_trait::async_trait]
+/// # #[async_trait]
 /// # impl NotificationHandler for DummyNotificationHandler {
-/// #     async fn handle(&self, _notification: Notification) -> Result<()> { Ok(()) }
+/// #     async fn handle(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
 /// # }
 /// # struct DummyNotificationSender;
-/// # #[async_trait::async_trait]
+/// # #[async_trait]
 /// # impl NotificationSender for DummyNotificationSender {
-/// #     async fn send(&self, _notification: Notification) -> Result<()> { Ok(()) }
+/// #     async fn send(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
 /// # }
 /// # let request_handler = DummyRequestHandler {};
 /// # let notification_handler = DummyNotificationHandler {};
@@ -223,7 +225,7 @@ impl Server {
     /// # server.set_request_handler(request_handler);
     /// # server.set_notification_handler(notification_handler);
     /// # server.set_notification_sender(notification_sender);
-    /// let transport = StdioServerTransport::new();
+    /// let transport = ServerStdioTransport::default();
     /// server.connect(transport).await?;
     /// # Ok(())
     /// # }
@@ -259,38 +261,39 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, RequestHandler, NotificationHandler, NotificationSender};
-    /// # use mcp_daemon::types::Implementation;
-    /// # use mcp_daemon::transport::StdioServerTransport;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
-    /// # struct DummyRequestHandler;
-    /// # #[async_trait::async_trait]
-    /// # impl RequestHandler for DummyRequestHandler {
-    /// #     async fn handle(&self, _request: Request) -> Result<serde_json::Value> { Ok(serde_json::Value::Null) }
-    /// # }
-    /// # struct DummyNotificationHandler;
-    /// # #[async_trait::async_trait]
-    /// # impl NotificationHandler for DummyNotificationHandler {
-    /// #     async fn handle(&self, _notification: Notification) -> Result<()> { Ok(()) }
-    /// # }
-    /// # struct DummyNotificationSender;
-    /// # #[async_trait::async_trait]
-    /// # impl NotificationSender for DummyNotificationSender {
-    /// #     async fn send(&self, _notification: Notification) -> Result<()> { Ok(()) }
-    /// # }
-    /// # let request_handler = DummyRequestHandler {};
-    /// # let notification_handler = DummyNotificationHandler {};
-    /// # let notification_sender = DummyNotificationSender {};
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, RequestHandler, NotificationHandler, NotificationSender, Request, Notification, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use mcp_daemon::transport::{ServerStdioTransport, Transport};
+/// # use async_trait::async_trait;
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
+/// # struct DummyRequestHandler;
+/// # #[async_trait]
+/// # impl RequestHandler for DummyRequestHandler {
+/// #     async fn handle(&self, _request: Request) -> std::result::Result<serde_json::Value, ServerError> { Ok(serde_json::Value::Null) }
+/// # }
+/// # struct DummyNotificationHandler;
+/// # #[async_trait]
+/// # impl NotificationHandler for DummyNotificationHandler {
+/// #     async fn handle(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
+/// # }
+/// # struct DummyNotificationSender;
+/// # #[async_trait]
+/// # impl NotificationSender for DummyNotificationSender {
+/// #     async fn send(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
+/// # }
+/// # let request_handler = DummyRequestHandler {};
+/// # let notification_handler = DummyNotificationHandler {};
+/// # let notification_sender = DummyNotificationSender {};
     /// # server.set_request_handler(request_handler);
     /// # server.set_notification_handler(notification_handler);
     /// # server.set_notification_sender(notification_sender);
-    /// # let transport = StdioServerTransport::new();
+    /// # let transport = ServerStdioTransport::default();
     /// # server.connect(transport).await?;
     /// // Start listening for messages
     /// server.listen().await?;
@@ -347,24 +350,25 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, RequestHandler};
-    /// # use mcp_daemon::types::Implementation;
-    /// # fn example() {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
-    /// # struct DummyRequestHandler;
-    /// # #[async_trait::async_trait]
-    /// # impl RequestHandler for DummyRequestHandler {
-    /// #     async fn handle(&self, _request: Request) -> Result<serde_json::Value> { Ok(serde_json::Value::Null) }
-    /// # }
-    /// # let request_handler = DummyRequestHandler {};
-    /// server.set_request_handler(request_handler);
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, RequestHandler, Request, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use async_trait::async_trait;
+/// # fn example() {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
+/// # struct DummyRequestHandler;
+/// # #[async_trait]
+/// # impl RequestHandler for DummyRequestHandler {
+/// #     async fn handle(&self, _request: Request) -> std::result::Result<serde_json::Value, ServerError> { Ok(serde_json::Value::Null) }
+/// # }
+/// # let request_handler = DummyRequestHandler {};
+/// server.set_request_handler(request_handler);
+/// # }
+/// ```
     pub fn set_request_handler(&mut self, handler: impl RequestHandler + 'static) {
         self.request_handler = Some(Arc::new(handler));
     }
@@ -379,24 +383,25 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, NotificationHandler};
-    /// # use mcp_daemon::types::Implementation;
-    /// # fn example() {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
-    /// # struct DummyNotificationHandler;
-    /// # #[async_trait::async_trait]
-    /// # impl NotificationHandler for DummyNotificationHandler {
-    /// #     async fn handle(&self, _notification: Notification) -> Result<()> { Ok(()) }
-    /// # }
-    /// # let notification_handler = DummyNotificationHandler {};
-    /// server.set_notification_handler(notification_handler);
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, NotificationHandler, Notification, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use async_trait::async_trait;
+/// # fn example() {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
+/// # struct DummyNotificationHandler;
+/// # #[async_trait]
+/// # impl NotificationHandler for DummyNotificationHandler {
+/// #     async fn handle(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
+/// # }
+/// # let notification_handler = DummyNotificationHandler {};
+/// server.set_notification_handler(notification_handler);
+/// # }
+/// ```
     pub fn set_notification_handler(&mut self, handler: impl NotificationHandler + 'static) {
         self.notification_handler = Some(Arc::new(handler));
     }
@@ -411,19 +416,20 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, NotificationSender};
-    /// # use mcp_daemon::types::Implementation;
-    /// # fn example() {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, NotificationSender, Notification, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use async_trait::async_trait;
+/// # fn example() {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
 /// # struct DummyNotificationSender;
-/// # #[async_trait::async_trait]
+/// # #[async_trait]
 /// # impl NotificationSender for DummyNotificationSender {
-/// #     async fn send(&self, _notification: Notification) -> Result<()> { Ok(()) }
+/// #     async fn send(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
 /// # }
 /// # let notification_sender = DummyNotificationSender {};
 /// server.set_notification_sender(notification_sender);
@@ -454,19 +460,20 @@ impl Server {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::server::{Server, NotificationSender, Notification};
-    /// # use mcp_daemon::types::Implementation;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let server_info = Implementation {
-    /// #     name: "example-server".to_string(),
-    /// #     version: "0.1.0".to_string(),
-    /// # };
-    /// # let mut server = Server::new(server_info);
+/// ```rust,no_run
+/// # use mcp_daemon::server::{Server, NotificationSender, Notification, ServerError};
+/// # use mcp_daemon::types::Implementation;
+/// # use async_trait::async_trait;
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let server_info = Implementation {
+/// #     name: "example-server".to_string(),
+/// #     version: "0.1.0".to_string(),
+/// # };
+/// # let mut server = Server::new(server_info);
 /// # struct DummyNotificationSender;
-/// # #[async_trait::async_trait]
+/// # #[async_trait]
 /// # impl NotificationSender for DummyNotificationSender {
-/// #     async fn send(&self, _notification: Notification) -> Result<()> { Ok(()) }
+/// #     async fn send(&self, _notification: Notification) -> std::result::Result<(), ServerError> { Ok(()) }
 /// # }
 /// # let notification_sender = DummyNotificationSender {};
 /// # server.set_notification_sender(notification_sender);

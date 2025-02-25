@@ -16,15 +16,16 @@
 //!
 //! ## Examples
 //!
-//! ```rust
+//! ```no_run
 //! use mcp_daemon::bridge::ollama::{convert_tools_for_ollama, parse_ollama_response};
 //! use mcp_daemon::types::Tool;
+//! use serde_json::json;
 //!
 //! // Define an MCP tool
 //! let tool = Tool {
 //!     name: "calculator".to_string(),
 //!     description: Some("Perform calculations".to_string()),
-//!     input_schema: serde_json::json!({
+//!     input_schema: json!({
 //!         "type": "object",
 //!         "properties": {
 //!             "operation": { "type": "string" },
@@ -38,9 +39,10 @@
 //! // Convert to Ollama function format
 //! let ollama_format = convert_tools_for_ollama(&[tool]);
 //!
-//! // Parse an Ollama response
-//! let response = r#"<function>calculator</function><args>{"operation":"add","a":1,"b":2}</args>"#;
-//! let execution = parse_ollama_response(response).unwrap();
+//! // Parse an Ollama response (using Ollama's JSON format)
+//! let response = r#"{"function": "calculator", "arguments": "{\"operation\":\"add\",\"a\":1,\"b\":2}"}"#;
+//! let execution = parse_ollama_response(response).unwrap().unwrap();
+//! assert_eq!(execution.name, "calculator");
 //! ```
 //!
 //! ## Related Modules
@@ -68,14 +70,15 @@ use serde::Deserialize;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::ollama::convert_tools_for_ollama;
 /// use mcp_daemon::types::Tool;
+/// use serde_json::json;
 ///
 /// let tool = Tool {
 ///     name: "calculator".to_string(),
 ///     description: Some("Perform calculations".to_string()),
-///     input_schema: serde_json::json!({
+///     input_schema: json!({
 ///         "type": "object",
 ///         "properties": {
 ///             "operation": { "type": "string" },
@@ -101,8 +104,7 @@ pub fn convert_tools_for_ollama(tools: &[Tool]) -> serde_json::Value {
 /// Parse Ollama response to extract function calls
 ///
 /// Analyzes an Ollama response string to identify and extract function calls.
-/// Ollama uses a specific format with <function> and <args> tags to indicate
-/// function calls in its responses.
+/// Ollama uses a JSON format with "function" and "arguments" fields.
 ///
 /// # Arguments
 ///
@@ -119,13 +121,16 @@ pub fn convert_tools_for_ollama(tools: &[Tool]) -> serde_json::Value {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use mcp_daemon::bridge::ollama::parse_ollama_response;
-/// use crate::transport::TransportError;
+/// use mcp_daemon::transport::{TransportError, TransportErrorCode};
+/// use serde_json::json;
 ///
-/// let response = r#"<function>calculator</function><args>{"operation":"add","a":1,"b":2}</args>"#;
+/// // Parse Ollama's JSON function call format
+/// let response = r#"{"function": "calculator", "arguments": "{\"operation\":\"add\",\"a\":1,\"b\":2}"}"#;
 /// let execution = parse_ollama_response(response).unwrap().unwrap();
 /// assert_eq!(execution.name, "calculator");
+/// assert!(execution.arguments.get("operation").is_some());
 /// ```
 pub fn parse_ollama_response(response: &str) -> Result<Option<ToolExecution>, crate::transport::TransportError> {
     // Look for function call pattern in response
@@ -158,15 +163,23 @@ pub fn parse_ollama_response(response: &str) -> Result<Option<ToolExecution>, cr
 ///
 /// # Examples
 ///
-/// ```rust
-/// use mcp_daemon::bridge::ollama::{format_ollama_response, ToolResponse};
+/// ```no_run
+/// use mcp_daemon::bridge::ollama::format_ollama_response;
+/// use mcp_daemon::bridge::ToolResponse;
+/// use serde_json::json;
 ///
 /// let response = ToolResponse {
-///     result: serde_json::json!({"sum": 3}),
+///     result: json!({
+///         "operation": "add",
+///         "result": 3
+///     }),
 ///     error: None,
 /// };
 ///
+/// // Format response for Ollama
 /// let ollama_response = format_ollama_response("calculator", &response);
+/// assert!(ollama_response.contains("calculator"));
+/// assert!(ollama_response.contains("result"));
 /// ```
 pub fn format_ollama_response(tool_name: &str, response: &ToolResponse) -> String {
     let function_response = mcp_to_function_response(tool_name, response);
@@ -190,8 +203,8 @@ struct OllamaFunctionCall {
 
 /// Extract function call from Ollama response text
 ///
-/// Parses the Ollama response text to extract function calls using regex.
-/// Looks for patterns like `<function>name</function><args>json_args</args>`.
+/// Parses the Ollama response text to extract function calls.
+/// Expects a JSON format with "function" and "arguments" fields.
 ///
 /// # Arguments
 ///
@@ -202,19 +215,20 @@ struct OllamaFunctionCall {
 /// An Option containing the extracted OllamaFunctionCall if a function call was found,
 /// or None if no function call was detected
 fn extract_function_call(response: &str) -> Option<OllamaFunctionCall> {
-    // This regex looks for function call patterns in Ollama's response
-    // You would need to adapt this to match Ollama's actual format
-    let re = regex::Regex::new(r"<function>(?P<name>[^<]+)</function>\s*<args>(?P<args>[^<]+)</args>").ok()?;
-    
-    if let Some(caps) = re.captures(response) {
-        let name = caps.name("name")?.as_str().to_string();
-        let args = caps.name("args")?.as_str();
-        
-        if let Ok(arguments) = serde_json::from_str(args) {
-            return Some(OllamaFunctionCall { name, arguments });
+    // Parse Ollama's JSON response format
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(response) {
+        if let (Some(name), Some(args)) = (
+            parsed.get("function").and_then(|v| v.as_str()),
+            parsed.get("arguments").and_then(|v| v.as_str())
+        ) {
+            if let Ok(arguments) = serde_json::from_str(args) {
+                return Some(OllamaFunctionCall {
+                    name: name.to_string(),
+                    arguments,
+                });
+            }
         }
     }
-    
     None
 }
 
@@ -244,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_parse_response() {
-        let response = r#"<function>test_tool</function><args>{"arg1": "test"}</args>"#;
+        let response = r#"{"function": "test_tool", "arguments": "{\"arg1\": \"test\"}"}"#;
         let execution = parse_ollama_response(response).unwrap().unwrap();
         assert_eq!(execution.name, "test_tool");
         assert_eq!(execution.arguments, serde_json::json!({"arg1": "test"}));

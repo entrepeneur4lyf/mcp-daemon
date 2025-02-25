@@ -713,7 +713,8 @@ pub struct SamplingResult {
 /// ```rust
 /// use std::pin::Pin;
 /// use std::future::Future;
-/// use mcp_daemon::server::sampling::{SamplingCallback, SamplingRequest, SamplingResult, ServerError};
+/// use mcp_daemon::server::sampling::{SamplingCallback, SamplingRequest, SamplingResult, MessageRole, MessageContent};
+/// use mcp_daemon::server::error::ServerError;
 ///
 /// struct MySamplingCallback;
 ///
@@ -721,7 +722,7 @@ pub struct SamplingResult {
 ///     fn call(
 ///         &self,
 ///         request: SamplingRequest,
-///     ) -> Pin<Box<dyn Future<Output = Result<SamplingResult, ServerError>> + Send + 'static>> {
+///     ) -> Pin<Box<dyn Future<Output = std::result::Result<SamplingResult, ServerError>> + Send + 'static>> {
 ///         // Implementation would call an LLM API
 ///         Box::pin(async move {
 ///             // ... implementation details
@@ -949,42 +950,47 @@ impl RegisteredSampling {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent};
-    /// use std::time::Duration;
-    ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let handler = RegisteredSampling::new(
-    ///     |req: SamplingRequest| {
-    ///         Box::pin(async move {
-    ///             // Implementation
-    ///             Ok(req.messages[0].content.clone())
-    ///         })
-    ///     },
-    ///     Some(Duration::from_secs(10)),
-    ///     Some(5),
-    /// );
-    ///
-    /// let request = SamplingRequest {
-    ///     messages: vec![Message {
-    ///         role: MessageRole::User,
-    ///         content: MessageContent::Text {
-    ///             text: "Hello".to_string(),
-    ///         },
-    ///     }],
-    ///     model_preferences: None,
-    ///     system_prompt: None,
-    ///     include_context: None,
-    ///     temperature: None,
-    ///     max_tokens: 100,
-    ///     stop_sequences: None,
-    ///     metadata: None,
-    /// };
-    ///
-    /// let result = handler.process_request(request).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
+/// ```rust
+/// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent, SamplingResult, StopReason};
+/// use std::time::Duration;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let handler = RegisteredSampling::new(
+///     |req: SamplingRequest| {
+///         Box::pin(async move {
+///             // Implementation
+///             Ok(SamplingResult {
+///                 model: "claude-3".to_string(),
+///                 stop_reason: Some(StopReason::EndTurn),
+///                 role: MessageRole::Assistant,
+///                 content: req.messages[0].content.clone(),
+///             })
+///         })
+///     },
+///     Some(Duration::from_secs(10)),
+///     Some(5),
+/// );
+///
+/// let request = SamplingRequest {
+///     messages: vec![Message {
+///         role: MessageRole::User,
+///         content: MessageContent::Text {
+///             text: "Hello".to_string(),
+///         },
+///     }],
+///     model_preferences: None,
+///     system_prompt: None,
+///     include_context: None,
+///     temperature: None,
+///     max_tokens: 100,
+///     stop_sequences: None,
+///     metadata: None,
+/// };
+///
+/// let result = handler.process_request(request).await?;
+/// # Ok(())
+/// # }
+/// ```
     pub async fn process_request(&self, request: SamplingRequest) -> Result<SamplingResult> {
         // Validate the request
         request.validate()?;
@@ -1031,41 +1037,46 @@ impl RegisteredSampling {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent, ContextInclusion};
-    /// use std::time::Duration;
-    ///
-    /// let handler = RegisteredSampling::new(
-    ///     |req: SamplingRequest| {
-    ///         Box::pin(async move {
-    ///             // Implementation
-    ///             Ok(req.messages[0].content.clone())
-    ///         })
-    ///     },
-    ///     None,
-    ///     None,
-    /// );
-    ///
-    /// let request = SamplingRequest {
-    ///     messages: vec![Message {
-    ///         role: MessageRole::User,
-    ///         content: MessageContent::Text {
-    ///             text: "What files are in the current directory?".to_string(),
-    ///         },
-    ///     }],
-    ///     include_context: Some(ContextInclusion::ThisServer),
-    ///     // ... other fields
-    ///     max_tokens: 100,
-    ///     model_preferences: None,
-    ///     system_prompt: None,
-    ///     temperature: None,
-    ///     stop_sequences: None,
-    ///     metadata: None,
-    /// };
-    ///
-    /// let context = "The current directory contains: main.rs, lib.rs, Cargo.toml";
-    /// let request_with_context = handler.include_context(request, context);
-    /// ```
+/// ```rust
+/// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent, ContextInclusion, SamplingResult, StopReason};
+/// use std::time::Duration;
+///
+/// let handler = RegisteredSampling::new(
+///     |req: SamplingRequest| {
+///         Box::pin(async move {
+///             // Implementation
+///             Ok(SamplingResult {
+///                 model: "claude-3".to_string(),
+///                 stop_reason: Some(StopReason::EndTurn),
+///                 role: MessageRole::Assistant,
+///                 content: req.messages[0].content.clone(),
+///             })
+///         })
+///     },
+///     None,
+///     None,
+/// );
+///
+/// let request = SamplingRequest {
+///     messages: vec![Message {
+///         role: MessageRole::User,
+///         content: MessageContent::Text {
+///             text: "What files are in the current directory?".to_string(),
+///         },
+///     }],
+///     include_context: Some(ContextInclusion::ThisServer),
+///     // ... other fields
+///     max_tokens: 100,
+///     model_preferences: None,
+///     system_prompt: None,
+///     temperature: None,
+///     stop_sequences: None,
+///     metadata: None,
+/// };
+///
+/// let context = "The current directory contains: main.rs, lib.rs, Cargo.toml";
+/// let request_with_context = handler.include_context(request, context);
+/// ```
     pub fn include_context(&self, mut request: SamplingRequest, context: &str) -> SamplingRequest {
         // Only include context if requested
         if let Some(inclusion) = &request.include_context {
@@ -1104,41 +1115,46 @@ impl RegisteredSampling {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent};
-    ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let handler = RegisteredSampling::new(
-    ///     |req: SamplingRequest| {
-    ///         Box::pin(async move {
-    ///             // Implementation
-    ///             Ok(req.messages[0].content.clone())
-    ///         })
-    ///     },
-    ///     None,
-    ///     None,
-    /// );
-    ///
-    /// let request = SamplingRequest {
-    ///     messages: vec![Message {
-    ///         role: MessageRole::User,
-    ///         content: MessageContent::Text {
-    ///             text: "Hello".to_string(),
-    ///         },
-    ///     }],
-    ///     model_preferences: None,
-    ///     system_prompt: None,
-    ///     include_context: None,
-    ///     temperature: None,
-    ///     max_tokens: 100,
-    ///     stop_sequences: None,
-    ///     metadata: None,
-    /// };
-    ///
-    /// handler.human_approval(&request).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
+/// ```rust
+/// use mcp_daemon::server::sampling::{RegisteredSampling, SamplingRequest, Message, MessageRole, MessageContent, SamplingResult, StopReason};
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let handler = RegisteredSampling::new(
+///     |req: SamplingRequest| {
+///         Box::pin(async move {
+///             // Implementation
+///             Ok(SamplingResult {
+///                 model: "claude-3".to_string(),
+///                 stop_reason: Some(StopReason::EndTurn),
+///                 role: MessageRole::Assistant,
+///                 content: req.messages[0].content.clone(),
+///             })
+///         })
+///     },
+///     None,
+///     None,
+/// );
+///
+/// let request = SamplingRequest {
+///     messages: vec![Message {
+///         role: MessageRole::User,
+///         content: MessageContent::Text {
+///             text: "Hello".to_string(),
+///         },
+///     }],
+///     model_preferences: None,
+///     system_prompt: None,
+///     include_context: None,
+///     temperature: None,
+///     max_tokens: 100,
+///     stop_sequences: None,
+///     metadata: None,
+/// };
+///
+/// handler.human_approval(&request).await?;
+/// # Ok(())
+/// # }
+/// ```
     pub async fn human_approval(&self, _request: &SamplingRequest) -> Result<()> {
         // In a real implementation, this would show the request to a human and wait for approval
         // For this example, we'll just simulate approval

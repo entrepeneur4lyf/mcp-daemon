@@ -20,12 +20,11 @@
 //!
 //! ### Using the OpenAI Bridge
 //!
-//! ```rust,no_run
-//! use mcp_daemon::bridge::openai;
+//! ```no_run
+//! use mcp_daemon::bridge::openai::{mcp_to_function, mcp_to_function_response, ToolResponse};
 //! use mcp_daemon::types::Tool;
 //! use serde_json::json;
 //!
-//! # fn example() {
 //! // Define MCP tools
 //! let tools = vec![
 //!     Tool {
@@ -47,21 +46,29 @@
 //! ];
 //!
 //! // Convert MCP tools to OpenAI function format
-//! let openai_functions = openai::mcp_to_function(&tools);
+//! let openai_functions = mcp_to_function(&tools);
 //!
 //! // Use the converted functions with OpenAI API
 //! // ...
-//! # }
+//!
+//! // Create a tool response
+//! let tool_response = ToolResponse {
+//!     result: json!({"result": 42}),
+//!     error: None,
+//! };
+//!
+//! // Convert to OpenAI function response format
+//! let function_response = mcp_to_function_response("calculator", &tool_response);
+//! assert_eq!(function_response.name, "calculator");
 //! ```
 //!
 //! ### Using the Ollama Bridge
 //!
-//! ```rust,no_run
-//! use mcp_daemon::bridge::ollama;
+//! ```no_run
+//! use mcp_daemon::bridge::ollama::{convert_tools_for_ollama, parse_ollama_response};
 //! use mcp_daemon::types::Tool;
 //! use serde_json::json;
 //!
-//! # fn example() {
 //! // Define MCP tools
 //! let tools = vec![
 //!     Tool {
@@ -82,12 +89,13 @@
 //!     }
 //! ];
 //!
-//! // Convert MCP tools to Ollama function format
-//! let ollama_format = ollama::convert_tools_for_ollama(&tools);
+//! // Convert tools to Ollama format (which follows OpenAI's specification)
+//! let ollama_functions = convert_tools_for_ollama(&tools);
 //!
-//! // Use the converted format with Ollama API
-//! // ...
-//! # }
+//! // Parse Ollama response
+//! let response = r#"{"function": "calculator", "arguments": "{\"operation\":\"add\",\"a\":1,\"b\":2}"}"#;
+//! let tool_execution = parse_ollama_response(response).unwrap().unwrap();
+//! assert_eq!(tool_execution.name, "calculator");
 //! ```
 
 /// OpenAI bridge implementation

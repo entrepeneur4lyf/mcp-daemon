@@ -27,12 +27,12 @@
 //!
 //! ```rust,no_run
 //! use mcp_daemon::protocol::{Protocol, ProtocolBuilder};
-//! use mcp_daemon::transport::StdioServerTransport;
+//! use mcp_daemon::transport::ServerStdioTransport;
 //! use serde_json::json;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a transport
-//! let transport = StdioServerTransport::new();
+//! let transport = ServerStdioTransport::default();
 //!
 //! // Create a protocol builder
 //! let builder = ProtocolBuilder::new(transport)
@@ -482,11 +482,13 @@ impl Default for RequestOptions {
 ///
 /// ```rust,no_run
 /// use mcp_daemon::protocol::ProtocolBuilder;
-/// use mcp_daemon::transport::StdioServerTransport;
+/// use mcp_daemon::transport::{ServerStdioTransport, Transport, TransportError};
 /// use serde_json::json;
+/// use std::pin::Pin;
+/// use std::future::Future;
 ///
 /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let transport = StdioServerTransport::new();
+/// let transport = ServerStdioTransport::default();
 ///
 /// // Create a protocol builder with request and notification handlers
 /// let builder = ProtocolBuilder::new(transport)
@@ -554,20 +556,22 @@ impl<T: Transport> ProtocolBuilder<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::protocol::ProtocolBuilder;
-    /// # use mcp_daemon::transport::StdioServerTransport;
-    /// # use serde_json::json;
-    /// # fn example() {
-    /// # let transport = StdioServerTransport::new();
-    /// let builder = ProtocolBuilder::new(transport)
-    ///     .request_handler("ping", |_: serde_json::Value| {
-    ///         Box::pin(async move {
-    ///             Ok(json!({ "result": "pong" }))
-    ///         })
-    ///     });
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::protocol::ProtocolBuilder;
+/// # use mcp_daemon::transport::{ServerStdioTransport, Transport, TransportError};
+/// # use serde_json::json;
+/// # use std::pin::Pin;
+/// # use std::future::Future;
+/// # fn example() {
+/// # let transport = ServerStdioTransport::default();
+/// let builder = ProtocolBuilder::new(transport)
+///     .request_handler("ping", |_: serde_json::Value| {
+///         Box::pin(async move {
+///             Ok(json!({ "result": "pong" }))
+///         })
+///     });
+/// # }
+/// ```
     pub fn request_handler<Req, Resp>(
         mut self,
         method: &str,
@@ -616,20 +620,23 @@ impl<T: Transport> ProtocolBuilder<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::protocol::ProtocolBuilder;
-    /// # use mcp_daemon::transport::StdioServerTransport;
-    /// # fn example() {
-    /// # let transport = StdioServerTransport::new();
-    /// let builder = ProtocolBuilder::new(transport)
-    ///     .notification_handler("log", |params: serde_json::Value| {
-    ///         Box::pin(async move {
-    ///             println!("Log: {:?}", params);
-    ///             Ok(())
-    ///         })
-    ///     });
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::protocol::ProtocolBuilder;
+/// # use mcp_daemon::transport::{ServerStdioTransport, Transport, TransportError};
+/// # use serde_json::json;
+/// # use std::pin::Pin;
+/// # use std::future::Future;
+/// # fn example() {
+/// # let transport = ServerStdioTransport::default();
+/// let builder = ProtocolBuilder::new(transport)
+///     .notification_handler("log", |params: serde_json::Value| {
+///         Box::pin(async move {
+///             println!("Log: {:?}", params);
+///             Ok(())
+///         })
+///     });
+/// # }
+/// ```
     pub fn notification_handler<N>(
         mut self,
         method: &str,
@@ -655,15 +662,15 @@ impl<T: Transport> ProtocolBuilder<T> {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
-    /// # use mcp_daemon::protocol::ProtocolBuilder;
-    /// # use mcp_daemon::transport::StdioServerTransport;
-    /// # fn example() {
-    /// # let transport = StdioServerTransport::new();
-    /// # let builder = ProtocolBuilder::new(transport);
-    /// let protocol = builder.build();
-    /// # }
-    /// ```
+/// ```rust,no_run
+/// # use mcp_daemon::protocol::ProtocolBuilder;
+/// # use mcp_daemon::transport::{ServerStdioTransport, Transport};
+/// # fn example() {
+/// # let transport = ServerStdioTransport::default();
+/// # let builder = ProtocolBuilder::new(transport);
+/// let protocol = builder.build();
+/// # }
+/// ```
     pub fn build(self) -> Protocol<T> {
         Protocol {
             transport: Arc::new(self._transport),

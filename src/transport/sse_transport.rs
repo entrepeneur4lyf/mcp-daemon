@@ -15,38 +15,39 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use mcp_daemon::transport::sse_transport::ServerSseTransport;
-//! use mcp_daemon::transport::Transport;
+//! ```no_run
+//! use mcp_daemon::transport::{ServerSseTransport, Transport};
+//! use actix_web::{web, App, HttpServer, Responder};
+//! use serde_json::json;
 //!
-//! async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create a new SSE transport with a responder for use with actix-web
+//! async fn sse_handler() -> impl Responder {
+//!     // Create transport with 100 message buffer
 //!     let (transport, responder) = ServerSseTransport::new_with_responder(100);
 //!     
-//!     // Send a message through the transport
-//!     let message = serde_json::json!({
-//!         "jsonrpc": "2.0",
-//!         "method": "notification",
-//!         "params": { "type": "update", "data": "New data available" }
-//!     });
-//!     transport.send(&message).await?;
+//!     // Send analysis events
+//!     transport.send_event("analysis_start", "Beginning code analysis...").await?;
 //!     
-//!     // Send a named event with data
-//!     transport.send_event("status", "Processing request...").await?;
-//!     
-//!     // Send a JSON-serialized data message
-//!     transport.send_json(serde_json::json!({
-//!         "progress": 50,
-//!         "status": "in_progress"
+//!     // Send structured data
+//!     transport.send_json(json!({
+//!         "analysis": {
+//!             "code_quality": {
+//!                 "score": 0.85,
+//!                 "issues": [{
+//!                     "type": "security",
+//!                     "severity": "medium",
+//!                     "description": "Password hashing should use work factor of 12"
+//!                 }]
+//!             }
+//!         }
 //!     })).await?;
 //!     
-//!     // Send a comment (useful for keep-alive)
+//!     // Send progress updates
+//!     transport.send_event("progress", "Generating improvements...").await?;
+//!     
+//!     // Keep connection alive
 //!     transport.send_comment("keep-alive").await?;
 //!     
-//!     // The responder would be returned from an actix-web handler
-//!     // return Ok(responder);
-//!     
-//!     Ok(())
+//!     Ok(responder)
 //! }
 //! ```
 
@@ -72,23 +73,34 @@ use crate::transport::{Message, Result, Transport};
 ///
 /// # Examples
 ///
-/// ```
-/// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-/// use mcp_daemon::transport::Transport;
+/// ```no_run
+/// use mcp_daemon::transport::{ServerSseTransport, Transport};
+/// use actix_web::{web, App, HttpServer, Responder};
+/// use serde_json::json;
 ///
-/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create a new SSE transport with a responder
+/// async fn sse_handler() -> impl Responder {
+///     // Create transport with keep-alive enabled
 ///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
 ///     
-///     // Send a message
-///     let message = serde_json::json!({
-///         "jsonrpc": "2.0",
-///         "method": "notification",
-///         "params": { "type": "update", "data": "New data available" }
-///     });
-///     transport.send(&message).await?;
+///     // Send analysis events
+///     transport.send_event("thinking", "Analyzing implementation...").await?;
+///     transport.send_event("analysis", "Code review in progress...").await?;
 ///     
-///     Ok(())
+///     // Send structured data
+///     transport.send_json(json!({
+///         "metadata": {
+///             "model": "code-llm-v1",
+///             "confidence": 0.92
+///         },
+///         "analysis": {
+///             "issues": [{
+///                 "type": "security",
+///                 "severity": "medium"
+///             }]
+///         }
+///     })).await?;
+///     
+///     Ok(responder)
 /// }
 /// ```
 #[derive(Debug, Clone)]
@@ -114,7 +126,7 @@ impl ServerSseTransport {
     /// # Examples
     ///
     /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
+    /// use mcp_daemon::transport::ServerSseTransport;
     ///
     /// // Create a new SSE transport with a buffer capacity of 100 messages
     /// let transport = ServerSseTransport::new(100);
@@ -141,12 +153,12 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    /// use actix_web::{web, App, HttpServer, Responder};
-    ///
-    /// async fn sse_handler() -> impl Responder {
-    ///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
+/// ```
+/// use mcp_daemon::transport::ServerSseTransport;
+/// use actix_web::{web, App, HttpServer, Responder};
+///
+/// async fn sse_handler() -> impl Responder {
+///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
     ///     
     ///     // Store the transport somewhere for later use
     ///     // ...
@@ -177,23 +189,27 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    ///
-    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
-    ///     
-    ///     let message = serde_json::json!({
-    ///         "jsonrpc": "2.0",
-    ///         "method": "notification",
-    ///         "params": { "type": "update", "data": "New data available" }
-    ///     });
-    ///     
-    ///     transport.send_message(message).await?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
+/// ```
+/// use mcp_daemon::transport::{ServerSseTransport, Message};
+/// use mcp_daemon::transport::{JsonRpcMessage, JsonRpcNotification};
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+///     
+///     let message = Message::Notification(JsonRpcNotification {
+///         method: "notification".to_string(),
+///         params: Some(serde_json::json!({
+///             "type": "update",
+///             "data": "New data available"
+///         })),
+///         jsonrpc: Default::default(),
+///     });
+///     
+///     transport.send_message(message).await?;
+///     
+///     Ok(())
+/// }
+/// ```
     pub async fn send_message(&self, message: Message) -> Result<()> {
         let json = serde_json::to_string(&message)?;
         self.sender
@@ -216,17 +232,26 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    ///
-    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
-    ///     
-    ///     transport.send_data("Hello, world!").await?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::ServerSseTransport;
+/// use serde_json::json;
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+///     
+///     // Send raw data
+///     transport.send_data("Processing file: main.rs").await?;
+///     
+///     // Send structured data
+///     transport.send_json(json!({
+///         "file": "main.rs",
+///         "status": "processing",
+///         "progress": 45
+///     })).await?;
+///     
+///     Ok(())
+/// }
+/// ```
     pub async fn send_data(&self, data: impl Into<String>) -> Result<()> {
         let data = ByteString::from(data.into());
         self.sender
@@ -249,25 +274,35 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    /// use serde_json::json;
-    ///
-    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
-    ///     
-    ///     transport.send_json(json!({
-    ///         "status": "success",
-    ///         "message": "Operation completed",
-    ///         "data": {
-    ///             "id": 123,
-    ///             "name": "Example"
-    ///         }
-    ///     })).await?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::ServerSseTransport;
+/// use serde_json::json;
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+///     
+///     // Send analysis results
+///     transport.send_json(json!({
+///         "analysis": {
+///             "code_quality": {
+///                 "score": 0.85,
+///                 "issues": [{
+///                     "type": "security",
+///                     "severity": "medium",
+///                     "description": "Password hashing configuration"
+///                 }]
+///             },
+///             "performance_insights": [{
+///                 "type": "database",
+///                 "description": "Consider adding index",
+///                 "impact": "high"
+///             }]
+///         }
+///     })).await?;
+///     
+///     Ok(())
+/// }
+/// ```
     pub async fn send_json<T: Serialize>(&self, data: T) -> Result<()> {
         let json = serde_json::to_string(&data)?;
         let data = ByteString::from(json);
@@ -293,24 +328,25 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    ///
-    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
-    ///     
-    ///     // Send a progress update
-    ///     transport.send_event("progress", "50%").await?;
-    ///     
-    ///     // Send a status update
-    ///     transport.send_event("status", "Processing...").await?;
-    ///     
-    ///     // Send a completion event
-    ///     transport.send_event("complete", "Task finished successfully").await?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::ServerSseTransport;
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+///     
+///     // Send analysis events
+///     transport.send_event("thinking", "<thinking>Analyzing code...</thinking>").await?;
+///     transport.send_event("analysis", "Let me explain the implementation...").await?;
+///     
+///     // Send progress updates
+///     transport.send_event("progress", "Generating improvements...").await?;
+///     
+///     // Send completion
+///     transport.send_event("completion", "Analysis complete").await?;
+///     
+///     Ok(())
+/// }
+/// ```
     pub async fn send_event(&self, event: impl Into<String>, data: impl Into<String>) -> Result<()> {
         let data = ByteString::from(data.into());
         let event = ByteString::from(event.into());
@@ -335,21 +371,21 @@ impl ServerSseTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::sse_transport::ServerSseTransport;
-    ///
-    /// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let (transport, _) = ServerSseTransport::new_with_responder(100);
-    ///     
-    ///     // Send a keep-alive comment
-    ///     transport.send_comment("keep-alive").await?;
-    ///     
-    ///     // Send a debug comment
-    ///     transport.send_comment("Debug: Processing item 42").await?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::ServerSseTransport;
+///
+/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let (transport, _) = ServerSseTransport::new_with_responder(100);
+///     
+///     // Send keep-alive during long analysis
+///     transport.send_comment("keep-alive").await?;
+///     
+///     // Send debug info
+///     transport.send_comment("Debug: Processing file 42 of 100").await?;
+///     
+///     Ok(())
+/// }
+/// ```
     pub async fn send_comment(&self, comment: impl Into<String>) -> Result<()> {
         let comment = ByteString::from(comment.into());
         self.sender

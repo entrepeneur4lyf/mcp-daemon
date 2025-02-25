@@ -17,27 +17,30 @@
 //!
 //! ## Server-side usage
 //!
-//! ```
-//! use mcp_daemon::transport::{ServerStdioTransport, Transport};
+//! ```no_run
+//! use mcp_daemon::transport::{ServerStdioTransport, Transport, Message, JsonRpcResponse};
+//! use serde_json::json;
 //!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create a server transport
+//!     // Create a server transport for stdin/stdout communication
 //!     let transport = ServerStdioTransport::default();
 //!     
-//!     // Open the transport
-//!     transport.open().await?;
-//!     
-//!     // Receive a message
-//!     if let Some(message) = transport.receive().await? {
-//!         // Process the message
-//!         println!("Received: {:?}", message);
-//!         
-//!         // Send a response
-//!         transport.send(&message).await?;
+//!     // Process incoming messages
+//!     while let Some(message) = transport.receive().await? {
+//!         if let Message::Request(request) = message {
+//!             // Send a JSON-RPC response
+//!             let response = Message::Response(JsonRpcResponse {
+//!                 id: request.id,
+//!                 result: Some(json!({
+//!                     "status": "success",
+//!                     "timestamp": "2025-02-25T13:54:00Z"
+//!                 })),
+//!                 error: None,
+//!                 jsonrpc: Default::default(),
+//!             });
+//!             transport.send(&response).await?;
+//!         }
 //!     }
-//!     
-//!     // Close the transport
-//!     transport.close().await?;
 //!     
 //!     Ok(())
 //! }
@@ -45,31 +48,34 @@
 //!
 //! ## Client-side usage
 //!
-//! ```
-//! use mcp_daemon::transport::{ClientStdioTransport, Transport};
+//! ```no_run
+//! use mcp_daemon::transport::{ClientStdioTransport, Transport, Message, JsonRpcRequest};
+//! use serde_json::json;
 //!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create a client transport that spawns a server process
-//!     let transport = ClientStdioTransport::new("mcp-server", &["--option", "value"])?;
+//!     // Create a transport that spawns 'cat' for testing
+//!     let transport = ClientStdioTransport::new("cat", &[])?;
 //!     
-//!     // Open the transport (spawns the process)
+//!     // Open transport (spawns process)
 //!     transport.open().await?;
 //!     
-//!     // Send a message
-//!     let message = serde_json::json!({
-//!         "jsonrpc": "2.0",
-//!         "method": "example",
-//!         "params": {"hello": "world"},
-//!         "id": 1
+//!     // Send a test request
+//!     let message = Message::Request(JsonRpcRequest {
+//!         id: 1,
+//!         method: "test".to_string(),
+//!         params: Some(json!({
+//!             "hello": "world"
+//!         })),
+//!         jsonrpc: Default::default(),
 //!     });
 //!     transport.send(&message).await?;
 //!     
-//!     // Receive a response
+//!     // Receive echoed message
 //!     if let Some(response) = transport.receive().await? {
 //!         println!("Received: {:?}", response);
 //!     }
 //!     
-//!     // Close the transport (terminates the process)
+//!     // Clean up (sends SIGTERM if needed)
 //!     transport.close().await?;
 //!     
 //!     Ok(())
@@ -99,27 +105,30 @@ use tracing::debug;
 ///
 /// # Examples
 ///
-/// ```
-/// use mcp_daemon::transport::{ServerStdioTransport, Transport};
+/// ```no_run
+/// use mcp_daemon::transport::{ServerStdioTransport, Transport, Message, JsonRpcResponse};
+/// use serde_json::json;
 ///
 /// async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create a server transport
+///     // Create transport for stdin/stdout
 ///     let transport = ServerStdioTransport::default();
 ///     
-///     // Open the transport
-///     transport.open().await?;
-///     
-///     // Main server loop
+///     // Process messages until EOF
 ///     while let Some(message) = transport.receive().await? {
-///         // Process the message
-///         println!("Received: {:?}", message);
-///         
-///         // Send a response
-///         transport.send(&message).await?;
+///         if let Message::Request(request) = message {
+///             // Echo back a response
+///             let response = Message::Response(JsonRpcResponse {
+///                 id: request.id,
+///                 result: Some(json!({
+///                     "method": request.method,
+///                     "params": request.params
+///                 })),
+///                 error: None,
+///                 jsonrpc: Default::default(),
+///             });
+///             transport.send(&response).await?;
+///         }
 ///     }
-///     
-///     // Close the transport
-///     transport.close().await?;
 ///     
 ///     Ok(())
 /// }
@@ -215,7 +224,8 @@ impl Transport for ServerStdioTransport {
 /// # Examples
 ///
 /// ```
-/// use mcp_daemon::transport::{ClientStdioTransport, Transport};
+/// use mcp_daemon::transport::{ClientStdioTransport, Transport, Message};
+/// use mcp_daemon::transport::{JsonRpcMessage, JsonRpcRequest};
 ///
 /// async fn run_client() -> Result<(), Box<dyn std::error::Error>> {
 ///     // Create a client transport that spawns a server process
@@ -224,18 +234,21 @@ impl Transport for ServerStdioTransport {
 ///     // Open the transport (spawns the process)
 ///     transport.open().await?;
 ///     
-///     // Send a message
-///     let message = serde_json::json!({
-///         "jsonrpc": "2.0",
-///         "method": "example",
-///         "params": {"hello": "world"},
-///         "id": 1
+///     // Send a request
+///     let message = Message::Request(JsonRpcRequest {
+///         id: 1,
+///         method: "example".to_string(),
+///         params: Some(serde_json::json!({ "hello": "world" })),
+///         jsonrpc: Default::default(),
 ///     });
 ///     transport.send(&message).await?;
 ///     
 ///     // Receive a response
 ///     if let Some(response) = transport.receive().await? {
-///         println!("Received: {:?}", response);
+///         match response {
+///             Message::Response(resp) => println!("Received response: {:?}", resp),
+///             _ => println!("Received unexpected message type: {:?}", response),
+///         }
 ///     }
 ///     
 ///     // Close the transport (terminates the process)
@@ -272,12 +285,12 @@ impl ClientStdioTransport {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp_daemon::transport::ClientStdioTransport;
-    ///
-    /// // Create a transport that will spawn the "mcp-server" program
-    /// let transport = ClientStdioTransport::new("mcp-server", &["--option", "value"]).unwrap();
-    /// ```
+/// ```no_run
+/// use mcp_daemon::transport::ClientStdioTransport;
+///
+/// // Create a transport that spawns 'cat' for echo testing
+/// let transport = ClientStdioTransport::new("cat", &[]).unwrap();
+/// ```
     pub fn new(program: &str, args: &[&str]) -> Result<Self> {
         Ok(ClientStdioTransport {
             stdin: Arc::new(Mutex::new(None)),

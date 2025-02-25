@@ -627,18 +627,14 @@ impl ReadResourceCallback for ReadResourceCallbackFn {
 ///     true, // supports subscriptions
 /// );
 /// ```
-pub(crate) struct RegisteredResource {
+pub struct RegisteredResource {
     /// The resource metadata
-    #[allow(dead_code)]
     pub metadata: Resource,
     /// The callback to read the resource
-    #[allow(dead_code)]
     pub read_callback: Arc<dyn ReadResourceCallback>,
     /// Channel for resource update notifications
-    #[allow(dead_code)]
     pub update_channel: ResourceUpdateChannel,
     /// Whether this resource supports subscriptions
-    #[allow(dead_code)]
     pub supports_subscriptions: bool,
 }
 

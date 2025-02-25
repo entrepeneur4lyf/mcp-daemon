@@ -404,19 +404,20 @@ impl ServerError {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use mcp_daemon::server::error::{ServerError, ErrorCode};
-    ///
-    /// let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
-    /// let error = ServerError::with_source(
-    ///     ErrorCode::InternalError,
-    ///     "Internal server error",
-    ///     io_error
-    /// );
-    ///
-    /// assert_eq!(error.code(), Some(ErrorCode::InternalError));
-    /// assert!(error.source().is_some());
-    /// ```
+/// ```rust
+/// use mcp_daemon::server::error::{ServerError, ErrorCode};
+/// use std::error::Error;
+///
+/// let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+/// let error = ServerError::with_source(
+///     ErrorCode::InternalError,
+///     "Internal server error",
+///     io_error
+/// );
+///
+/// assert_eq!(error.code(), Some(ErrorCode::InternalError));
+/// assert!(error.source().is_some());
+/// ```
     pub fn with_source(
         code: ErrorCode,
         message: impl Into<String>,

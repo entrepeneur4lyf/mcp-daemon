@@ -70,7 +70,6 @@
 //!
 //! ```
 //! use mcp_daemon::server::tool::ToolBuilder;
-//! use mcp_daemon::types::CallToolResponse;
 //! use serde::Deserialize;
 //!
 //! // Define typed arguments
@@ -134,7 +133,9 @@ use crate::types::{CallToolResponse, Tool, Content};
 ///
 /// ```
 /// use mcp_daemon::server::tool::{ToolBuilder, RegisteredTool};
-/// use mcp_daemon::types::CallToolResponse;
+/// use mcp_daemon::types::{CallToolResponse, Content};
+/// use std::future::Future;
+/// use std::pin::Pin;
 ///
 /// // Create a tool using the builder pattern
 /// let (metadata, registered_tool) = ToolBuilder::new("calculator")
@@ -150,7 +151,11 @@ use crate::types::{CallToolResponse, Tool, Content};
 ///     }))
 ///     .build(|args| async move {
 ///         // Tool implementation
-///         CallToolResponse::success("Result: 42")
+///         CallToolResponse {
+///             content: vec![Content::Text { text: "Result: 42".to_string() }],
+///             is_error: None,
+///             meta: None,
+///         }
 ///     });
 /// ```
 pub struct RegisteredTool {
@@ -205,8 +210,10 @@ impl ToolCallback for ToolCallbackFn {
 ///
 /// ```
 /// use mcp_daemon::server::tool::ToolBuilder;
-/// use mcp_daemon::types::CallToolResponse;
+/// use mcp_daemon::types::{CallToolResponse, Content};
 /// use serde::{Serialize, Deserialize};
+/// use std::future::Future;
+/// use std::pin::Pin;
 ///
 /// #[derive(Deserialize)]
 /// struct CalculatorArgs {
@@ -233,9 +240,17 @@ impl ToolCallback for ToolCallbackFn {
 ///                 "subtract" => args.a - args.b,
 ///                 "multiply" => args.a * args.b,
 ///                 "divide" => args.a / args.b,
-///                 _ => return CallToolResponse::error("Unknown operation")
+///                 _ => return CallToolResponse {
+///                     content: vec![Content::Text { text: "Unknown operation".to_string() }],
+///                     is_error: Some(true),
+///                     meta: None,
+///                 }
 ///             };
-///             CallToolResponse::success(format!("Result: {}", result))
+///             CallToolResponse {
+///                 content: vec![Content::Text { text: format!("Result: {}", result) }],
+///                 is_error: None,
+///                 meta: None,
+///             }
 ///         })
 ///     });
 /// ```
@@ -322,7 +337,7 @@ impl ToolBuilder {
     /// # Arguments
     ///
     /// * `callback` - A function that takes optional JSON arguments and returns a future
-    ///                that resolves to a `CallToolResponse`
+    ///   that resolves to a `CallToolResponse`
     ///
     /// # Returns
     ///
@@ -365,7 +380,7 @@ impl ToolBuilder {
     /// # Arguments
     ///
     /// * `callback` - A function that takes a value of type `T` and returns a future
-    ///                that resolves to a `CallToolResponse`
+    ///   that resolves to a `CallToolResponse`
     ///
     /// # Returns
     ///
@@ -373,27 +388,35 @@ impl ToolBuilder {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use serde::Deserialize;
-    ///
-    /// #[derive(Deserialize)]
-    /// struct GreetingArgs {
-    ///     name: String,
-    ///     formal: Option<bool>,
-    /// }
-    ///
-    /// let (metadata, registered_tool) = ToolBuilder::new("greet")
-    ///     .build_typed(|args: GreetingArgs| {
-    ///         Box::pin(async move {
-    ///             let prefix = if args.formal.unwrap_or(false) {
-    ///                 "Hello, "
-    ///             } else {
-    ///                 "Hi, "
-    ///             };
-    ///             CallToolResponse::success(format!("{}{}", prefix, args.name))
-    ///         })
-    ///     });
-    /// ```
+/// ```
+/// use mcp_daemon::server::tool::ToolBuilder;
+/// use mcp_daemon::types::{CallToolResponse, Content};
+/// use serde::Deserialize;
+/// use std::future::Future;
+/// use std::pin::Pin;
+///
+/// #[derive(Deserialize)]
+/// struct GreetingArgs {
+///     name: String,
+///     formal: Option<bool>,
+/// }
+///
+/// let (metadata, registered_tool) = ToolBuilder::new("greet")
+///     .build_typed(|args: GreetingArgs| {
+///         Box::pin(async move {
+///             let prefix = if args.formal.unwrap_or(false) {
+///                 "Hello, "
+///             } else {
+///                 "Hi, "
+///             };
+///             CallToolResponse {
+///                 content: vec![Content::Text { text: format!("{}{}", prefix, args.name) }],
+///                 is_error: None,
+///                 meta: None,
+///             }
+///         })
+///     });
+/// ```
     #[allow(dead_code)]
     pub(crate) fn build_typed<T, F>(self, callback: F) -> (Tool, RegisteredTool)
     where
