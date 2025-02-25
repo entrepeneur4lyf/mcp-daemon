@@ -44,7 +44,6 @@
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a WebSocket transport
 //! let transport = ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string())
-//!     .with_timeout(Duration::from_secs(30))
 //!     .build();
 //!
 //! // Open the transport connection

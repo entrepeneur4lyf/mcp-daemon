@@ -19,8 +19,9 @@
 //!
 //! ```rust,no_run
 //! use mcp_daemon::client::Client;
-//! use mcp_daemon::transport::ClientStdioTransport;
+//! use mcp_daemon::transport::{ClientStdioTransport, Transport};
 //! use mcp_daemon::types::Implementation;
+//! use mcp_daemon::protocol::RequestOptions;
 //! use serde_json::json;
 //!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -130,3 +131,25 @@ pub mod bridge;
 // Re-export main components for easier access
 pub use client::Client;
 pub use server::Server;
+
+// # Transport Layer Examples
+//
+// ### Server-Side Stdio Transport
+//
+// ```rust,no_run
+// use mcp_daemon::transport::{ServerStdioTransport, Message};
+// ```
+//
+// ### Client-Side WebSocket Transport
+//
+// ```rust,no_run
+// use mcp_daemon::transport::ClientWsTransportBuilder;
+// use std::time::Duration;
+//
+// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// // Create a WebSocket transport
+// let transport = ClientWsTransportBuilder::new("ws://localhost:3004/ws".to_string())
+//     .build();
+// # Ok(())
+// # }
+// ```

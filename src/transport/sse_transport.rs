@@ -1,8 +1,7 @@
 //! Server-sent events (SSE) transport implementation for the Model Context Protocol
 //!
 //! This module provides a transport layer for server-sent events (SSE) using the actix-web-lab crate.
-//! SSE is a web technology where a browser receives automatic updates from a server via HTTP connection.
-//! It's a standardized way to establish a long-lived, unidirectional connection from server to client.
+//! SSE is a standardized way to establish a long-lived, unidirectional connection from server to client.
 //!
 //! The SSE transport in MCP is primarily used for:
 //! - Streaming responses from server to client
@@ -25,7 +24,7 @@
 //!     let (transport, responder) = ServerSseTransport::new_with_responder(100);
 //!     
 //!     // Send analysis events
-//!     transport.send_event("analysis_start", "Beginning code analysis...").await?;
+//!     transport.send_event("analysis_start", "Beginning code analysis...").await.unwrap();
 //!     
 //!     // Send structured data
 //!     transport.send_json(json!({
@@ -39,15 +38,15 @@
 //!                 }]
 //!             }
 //!         }
-//!     })).await?;
+//!     })).await.unwrap();
 //!     
 //!     // Send progress updates
-//!     transport.send_event("progress", "Generating improvements...").await?;
+//!     transport.send_event("progress", "Generating improvements...").await.unwrap();
 //!     
 //!     // Keep connection alive
-//!     transport.send_comment("keep-alive").await?;
+//!     transport.send_comment("keep-alive").await.unwrap();
 //!     
-//!     Ok(responder)
+//!     responder
 //! }
 //! ```
 
@@ -83,8 +82,8 @@ use crate::transport::{Message, Result, Transport};
 ///     let (transport, responder) = ServerSseTransport::new_with_responder(100);
 ///     
 ///     // Send analysis events
-///     transport.send_event("thinking", "Analyzing implementation...").await?;
-///     transport.send_event("analysis", "Code review in progress...").await?;
+///     transport.send_event("thinking", "Analyzing implementation...").await.unwrap();
+///     transport.send_event("analysis", "Code review in progress...").await.unwrap();
 ///     
 ///     // Send structured data
 ///     transport.send_json(json!({
@@ -98,9 +97,9 @@ use crate::transport::{Message, Result, Transport};
 ///                 "severity": "medium"
 ///             }]
 ///         }
-///     })).await?;
+///     })).await.unwrap();
 ///     
-///     Ok(responder)
+///     responder
 /// }
 /// ```
 #[derive(Debug, Clone)]

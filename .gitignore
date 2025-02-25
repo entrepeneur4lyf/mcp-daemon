@@ -35,3 +35,4 @@ Cargo.lock
 # Added by cargo
 
 /target
+rustc-ice*
