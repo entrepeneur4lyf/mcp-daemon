@@ -24,7 +24,7 @@ flowchart TD
         CloseMethod["async fn close(&self) -> Result<()>"]
     end
     
-    Transport --- Transport Interface
+    Transport -.-> Transport Interface
     
     subgraph Error Handling
         direction TB
