@@ -3,6 +3,7 @@
 
 use super::{Message, Result, Transport};
 use super::ws_transport::{ClientWsTransport, ServerWsTransport};
+#[cfg(feature = "sse")]
 use super::sse_transport::ServerSseTransport;
 use async_trait::async_trait;
 
@@ -10,6 +11,7 @@ use async_trait::async_trait;
 #[derive(Debug, Clone)]
 pub enum ServerHttpTransport {
     /// Server-Sent Events transport
+    #[cfg(feature = "sse")]
     Sse(ServerSseTransport),
     /// WebSocket transport
     Ws(ServerWsTransport),
@@ -26,6 +28,7 @@ pub enum ClientHttpTransport {
 impl Transport for ServerHttpTransport {
     async fn send(&self, message: &Message) -> Result<()> {
         match self {
+            #[cfg(feature = "sse")]
             Self::Sse(transport) => transport.send(message).await,
             Self::Ws(transport) => transport.send(message).await,
         }
@@ -33,6 +36,7 @@ impl Transport for ServerHttpTransport {
 
     async fn receive(&self) -> Result<Option<Message>> {
         match self {
+            #[cfg(feature = "sse")]
             Self::Sse(transport) => transport.receive().await,
             Self::Ws(transport) => transport.receive().await,
         }
@@ -40,6 +44,7 @@ impl Transport for ServerHttpTransport {
 
     async fn open(&self) -> Result<()> {
         match self {
+            #[cfg(feature = "sse")]
             Self::Sse(transport) => transport.open().await,
             Self::Ws(transport) => transport.open().await,
         }
@@ -47,6 +52,7 @@ impl Transport for ServerHttpTransport {
 
     async fn close(&self) -> Result<()> {
         match self {
+            #[cfg(feature = "sse")]
             Self::Sse(transport) => transport.close().await,
             Self::Ws(transport) => transport.close().await,
         }
