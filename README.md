@@ -22,7 +22,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mcp-daemon = "0.2.1"
+mcp_daemon = "0.2.1"
 ```
 
 ## Overview
