@@ -15,7 +15,9 @@ mod stdio_transport;
 pub use stdio_transport::*;
 mod inmemory_transport;
 pub use inmemory_transport::*;
+#[cfg(feature = "sse")]
 mod sse_transport;
+#[cfg(feature = "sse")]
 pub use sse_transport::*;
 mod ws_transport;
 pub use ws_transport::*;

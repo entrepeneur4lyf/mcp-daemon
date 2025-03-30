@@ -43,7 +43,9 @@ pub mod registry;
 pub mod server;
 
 /// Server-Sent Events (SSE) implementation for real-time communication
+#[cfg(feature = "sse")]
 pub mod sse;
+#[cfg(feature = "sse")]
 pub use sse::http_server::run_http_server;
 
 /// Transport layer implementations for different communication protocols

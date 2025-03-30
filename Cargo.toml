@@ -28,6 +28,10 @@ keywords = ["async", "mcp", "protocol", "daemon", "extended"]
 categories = ["asynchronous", "development-tools", "web-programming::http-client", "web-programming::http-server", "web-programming::websocket"]
 readme = "README.md"
 
+[features]
+default = ["sse"]
+sse = ["dep:actix-web-lab"]
+
 [dependencies]
 tokio = { version = "1.0", features = ["full", "test-util"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -44,7 +48,7 @@ futures = "0.3"
 jsonwebtoken = "8.1"
 uuid = { version = "1.0", features = ["v4"] }
 actix-ws = "0.2.5"
-actix-web-lab = "0.20"
+actix-web-lab = { version = "0.20", optional = true }
 actix-cors = "0.6"
 rustls = "0.20"
 rustls-pemfile = "1.0"
