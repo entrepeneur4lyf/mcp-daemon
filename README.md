@@ -1,6 +1,6 @@
 # mcp-daemon
 
-![Crates.io Total Downloads](https://img.shields.io/crates/d/mcp_daemon?style=plastic&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fmcp_daemon)![docs.rs](https://img.shields.io/docsrs/mcp_daemon%2F0.2.1?style=plastic&link=https%3A%2F%2Fdocs.rs%2Fcrate%2Fmcp_daemon%2F0.2.1)
+![Crates.io Total Downloads](https://img.shields.io/crates/d/mcp_daemon?style=plastic&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fmcp_daemon) ![docs.rs](https://img.shields.io/docsrs/mcp_daemon%2F0.2.1?style=plastic&link=https%3A%2F%2Fdocs.rs%2Fcrate%2Fmcp_daemon%2F0.2.1)
 
 ## Overview
 
